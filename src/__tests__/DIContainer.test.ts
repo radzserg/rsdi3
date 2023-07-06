@@ -38,9 +38,9 @@ describe("DIContainer typescript type resolution", () => {
   });
 
   test("it allows to override resolvers by key", () => {
-    const container = (new DIContainer())
+    const container = new DIContainer()
       .add("key1", () => "key1")
-      .add("key1", () => "key2" );
+      .add("key1", () => "key2");
     const value = container.get("key1");
     expect(value).toEqual("key2");
   });
@@ -58,7 +58,6 @@ describe("DIContainer typescript type resolution", () => {
       .add("a", () => "name1")
       .add("bar", () => new Bar())
       .add("foo", (c) => new Foo(c.get("a"), c.get("bar")));
-
 
     const foo = container.get("foo");
     expect(foo.name).toEqual("name1");

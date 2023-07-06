@@ -10,28 +10,32 @@ type Resolvers<CR extends ResolvedDependencies, T extends DIContainer<CR>> = {
   [k in keyof CR]?: Factory<DIContainer<T>>;
 };
 
+type StringLiteral<T> = T extends string ?
+  string extends T ? never
+    : T
+  : never
+
 export default class DIContainer<
   ContainerResolvers extends ResolvedDependencies = {},
 > {
+  private resolvers: Resolvers<
+    ContainerResolvers,
+    DIContainer<ContainerResolvers>
+  > = {};
 
   private resolvedDependencies: {
     [name in keyof ContainerResolvers]?: any;
   } = {};
 
-  public constructor(
-    private readonly resolvers: Resolvers<ContainerResolvers, DIContainer<ContainerResolvers>> = {}
-  ) {
-  }
-
   public add<
     N extends string,
     R extends Factory<DIContainer<ContainerResolvers>>,
-  >(name: N, resolver: R): DIContainer<ContainerResolvers & { [n in N]: R }> {
-    const resolvers = {
+  >(name: StringLiteral<N>, resolver: R): DIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> {
+    this.resolvers = {
       ...this.resolvers,
-      [name]: resolver
-    } as ContainerResolvers & { [n in N]: R };
-    return new DIContainer(resolvers)
+      [name]: resolver,
+    } as ContainerResolvers & { [n in N]: ReturnType<R> };
+    return this;
   }
 
   public get<Name extends keyof ContainerResolvers>(
