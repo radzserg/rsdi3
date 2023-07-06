@@ -10,10 +10,11 @@ type Resolvers<CR extends ResolvedDependencies, T extends DIContainer<CR>> = {
   [k in keyof CR]?: Factory<DIContainer<T>>;
 };
 
-type StringLiteral<T> = T extends string ?
-  string extends T ? never
+type StringLiteral<T> = T extends string
+  ? string extends T
+    ? never
     : T
-  : never
+  : never;
 
 export default class DIContainer<
   ContainerResolvers extends ResolvedDependencies = {},
@@ -27,14 +28,20 @@ export default class DIContainer<
     [name in keyof ContainerResolvers]?: any;
   } = {};
 
-  public add<
-    N extends string,
-    R extends Factory<DIContainer<ContainerResolvers>>,
-  >(name: StringLiteral<N>, resolver: R): DIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> {
+  public add<N extends string, R extends any>(
+    name: StringLiteral<N>,
+    resolver: R,
+  ): DIContainer<
+    ContainerResolvers & {
+      [n in N]: R extends Factory<DIContainer<ContainerResolvers>>
+        ? ReturnType<R>
+        : R;
+    }
+  > {
     this.resolvers = {
       ...this.resolvers,
       [name]: resolver,
-    } as ContainerResolvers & { [n in N]: ReturnType<R> };
+    };
     return this;
   }
 
@@ -49,7 +56,12 @@ export default class DIContainer<
     if (!resolver) {
       throw new DependencyIsMissingError(dependencyName as string);
     }
-    this.resolvedDependencies[dependencyName] = resolver(this);
+    if (typeof resolver === 'function') {
+      this.resolvedDependencies[dependencyName] = resolver(this);
+    } else {
+      this.resolvedDependencies[dependencyName] = resolver;
+    }
+
 
     return this.resolvedDependencies[dependencyName];
   }
