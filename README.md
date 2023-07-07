@@ -7,10 +7,6 @@ Simple and powerful dependency injection container for with strong type checking
 - [When to use](#when-to-use)
 - [Architecture](#architecture)
 - [Usage](#usage)
-  - [Raw values](#raw-values)
-  - [Object resolver](#object-resolver)
-  - [Function resolver](#function-resolver)
-  - [Factory resolver](#factory-resolver)
 - [Typescript type resolution](#typescript-type-resolution)
 - [Dependency declaration](#dependency-declaration)
 - Wiki
@@ -19,17 +15,22 @@ Simple and powerful dependency injection container for with strong type checking
 
 ## Motivation
 
-Popular dependency injection libraries use `reflect-metadata` that allows to fetch argument types and based on
-those types and do autowiring. Autowiring is a nice feature but the trade-off is decorators.
+Popular dependency injection libraries utilize reflect-metadata to retrieve argument types and use those types
+to carry out autowiring. Autowiring is an advantageous feature, but it necessitates the wrapping of all your
+components with decorators.
 
 ```typescript
 @injectable()
-class Foo {}
+class Foo {
+  constructor(@inject("Database") private database?: Database) {}
+}
+// Notice how in order to allow the use of the empty constructor new Foo(), 
+// we need to make the parameters optional, e.g. database?: Database.
 ```
 
-Why component Foo should know that it's injectable?
+Why should component Foo be aware that it's injectable?
 
-Your business logic depends on a specific framework that is not part of your domain model and can change.
+Your business logic relies on a particular framework, which isn't part of your domain model and is subject to change.
 
 More thoughts in a [dedicated article](https://radzserg.medium.com/https-medium-com-radzserg-dependency-injection-in-react-part-2-995e93b3327c)
 
@@ -37,7 +38,7 @@ More thoughts in a [dedicated article](https://radzserg.medium.com/https-medium-
 
 - Simple but powerful
 - Does not requires decorators
-- Great types resolution
+- Strict types resolution
 - Works great with both javascript and typescript
 
 ## When to use
@@ -78,7 +79,7 @@ use both.
 
 export function UserController(
   userRegistrator: UserRegistrator,
-  userRepository: UserRepository
+  userRepository: UserRepository,
 ) {
   return {
     async create(req: Request, res: Response) {
@@ -120,30 +121,22 @@ Now we need to configure the dependency injection container before use. Dependen
 until the application really needs them. Your DI container initialization function - `configureDI` will include:
 
 ```typescript
-import DIContainer, { object, use, factory, func, IDIContainer } from "rsdi";
+import DIContainer from "rsdi";
 
 export default function configureDI() {
-  const container = new DIContainer();
-  container.add({
-    buildDbConnection: factory(() => {
-      buildDbConnection();
-    }),
-    [MyDbProviderUserRepository.name]: func(
-      MyDbProviderUserRepository,
-      use(buildDbConnection)
-    ),
-    [UserRegistrator.name]: object(UserRegistrator).construct(
-      use(MyDbProviderUserRepository.name)
-    ),
-    [UserController.name]: func(
-      UserController,
-      use(UserRegistrator.name),
-      use(MyDbProviderUserRepository.name)
-    ),
-  });
-  return container;
+  return new DIContainer()
+    .add("dbConnection", buildDbConnection())
+    .add("userRepository", (c) =>
+      MyDbProviderUserRepository(c.get("dbConnection")),
+    )
+    .add("userRegistrator", (c) => new UserRegistrator(c.get("userRepository")))
+    .add("userController", (c) =>
+      UserController(c.get("userRepository"), c.get("userRegistrator")),
+    );
 }
 ```
+
+`container.get` - return type based on declaration.
 
 **All resolvers are resolved only once and their result persists over the life of the container.**
 
@@ -153,7 +146,7 @@ Let's map our web application routes to configured controllers
 // configure Express router
 export default function configureRouter(
   app: core.Express,
-  diContainer: IDIContainer
+  diContainer: IDIContainer,
 ) {
   const usersController = diContainer.get(UsersController);
   app
@@ -179,221 +172,5 @@ app.listen(8000, () => {
 
 The complete web application example can be found [here](https://radzserg.medium.com/dependency-injection-in-express-application-dd85295694ab)
 
-## Dependency Resolvers
 
-### Raw values resolver
-
-Dependencies are set as raw values. Container keeps and return raw values.
-
-```typescript
-import DIContainer from "rsdi";
-
-const container = new DIContainer();
-container.add({
-  ENV: "PRODUCTION",
-  HTTP_PORT: 3000,
-  storage: new CookieStorage(),
-});
-const env: string = container.get("ENV");
-const port: number = container.get("HTTP_PORT");
-const authStorage: AuthStorage = container.get(AuthStorage); // instance of AuthStorage
-```
-
-### Object resolver
-
-`object(ClassName)` - constructs an instance of the given class. The simplest scenario it calls the class constructor `new ClassName()`.
-When you need to pass arguments to the constructor, you can use `construct` method. You can refer to the already defined
-dependencies via the `use` helper, or you can pass raw values.
-
-If you need to call object method after initialization you can use `method` it will be called after constructor.
-
-```typescript
-class ControllerContainer {
-  constructor(authStorage: AuthStorage, logger: Logger) {}
-
-  add(controller: Controller) {
-    this.controllers.push(controller);
-  }
-}
-
-// container
-const container = new DIContainer();
-container.add({
-  Storage: object(CookieStorage), // constructor without arguments
-  AuthStorage: object(AuthStorage).construct(
-    use(Storage) // refers to existing dependency
-  ),
-  UsersController: object(UserController),
-  PostsController: object(PostsController),
-  ControllerContainer: object(MainCliCommand)
-    .construct(use(AuthStorage), new Logger()) // use existing dependency, or pass raw values
-    .method("add", use(UsersController)) // call class method after initialization
-    .method("add", use(PostsController)),
-});
-```
-
-### Function resolver
-
-Function resolver allows declaring lazy functions. Function will be called when it's actually needed.
-
-```typescript
-function UsersRepoFactory(knex: Knex): UsersRepo {
-  return {
-    async findById(id: number) {
-      await knex("users").where({ id });
-    },
-  };
-}
-
-const container = new DIContainer();
-container.add({
-  DBConnection: knex(/* ... */),
-  UsersRepoFactory: func(UsersRepoFactory, use("DBConnection")),
-});
-
-const userRepo = container.get(UsersRepoFactory);
-```
-
-### Factory resolver
-
-Factory resolver is similar to a Function resolver. You can use factory resolver when you need more flexibility
-during initialization. `container: IDIContainer` will be passed in as an argument to the factory method. You can
-resolve other dependencies inside the factory function and have conditions inside of it.
-
-```typescript
-const container = new DIContainer();
-container.add({
-  BrowserHistory: factory(configureHistory),
-});
-
-function configureHistory(container: IDIContainer): History {
-  const history = createBrowserHistory();
-  const env = container.get("ENV");
-  if (env === "production") {
-    // do what you need
-  }
-  return history;
-}
-const history = container.get("BrowserHistory");
-```
-
-## Typescript type resolution
-
-`container.get` - return type based on declaration.
-
-```typescript
-const container: DIContainer = new DIContainer();
-container.add({
-  strVal: "raw string value",
-  numberVal: 123,
-  boolVal: true,
-  objectVal: object(Buzz), // resolvers to object of class Buzz
-  dateVal: func(function () {
-    return new Date(); // resolves to ReturnType of the function
-  }),
-});
-const strVal = container.get("strVal"); // strVal: string
-const numberVal = container.get("numberVal"); // numberVal: number
-const boolVal = container.get("boolVal"); // boolVal: boolean
-const objectVal = container.get("objectVal"); // boolVal: Buzz
-const dateVal = container.get("dateVal"); // dateVal: Date
-```
-
-`contrainer.use` - allows to reference declared dependency with respect to types.
-
-```typescript
-export class Foo {
-  constructor(name: string, bar: Bar) {}
-}
-
-const container: DIContainer = new DIContainer();
-
-container.add({
-  bar: new ObjectResolver(Bar),
-  key1: new RawValueResolver("value1"),
-
-  // `bar` dependency cannot be referenced in the same `add` call
-  // Argument of type 'string' is not assignable to parameter of type... '
-  // foo: new ObjectResolver(Foo).construct("foo", container.use("bar")),
-});
-container.add({
-  foo: new ObjectResolver(Foo).construct("foo", container.use("bar")),
-});
-```
-
-To support lazy loading `construct` method changes original Foo constructor to expect
-`(string | ReferenceResolver<string>, Bar | ReferenceResolver<Bar>)`.
-`container.use("bar")` - will return object `ReferenceResolver<Bar>` to respect safe types.
-
-`use` helper
-
-```typescript
-import { use } from "rsdi";
-```
-
-`use` helper is less strict version of `container.use`. It allows to reference dependencies that **will be defined** relying
-on convention over configuration rule.
-
-- if given name is a class - instance of the class
-- if given name is a function - return type of the function
-- if custom type is provided - return ReferenceResolver<Custom>
-- otherwise - any
-
-```typescript
-class Foo {
-  constructor(private readonly bar: Bar) {}
-}
-
-function returnBoolean() {
-  return true;
-}
-
-const container: DIContainer = new DIContainer();
-container.add({
-  Bar: new Bar(),
-  Foo: object(Foo).construct(use(Bar)), // resolves Bar
-
-  expectBoolFunc: func(function (a: boolean) {
-    return null;
-  }, use(returnBoolean)), // resolves to ReturnType of returnBoolean function
-
-  expectDateFunc: func(function (a: Date) {
-    return null;
-  }, use<Date>("date")), // resolves to Date
-
-  expectDateFunc2: func(function (a: Date) {
-    return null;
-  }, use("date")), // resolves to any
-});
-```
-
-## Dependency declaration
-
-**Use string names**
-
-```typescript
-const container: DIContainer = new DIContainer();
-
-container.add({
-  bar: new ObjectResolver(Bar),
-  key1: new RawValueResolver("value1"),
-});
-
-container.add({
-  foo: new ObjectResolver(Foo).construct("foo", container.use("bar")),
-});
-```
-
-Use function and class names by declaring them as `[MyClass.name]`. In this case, it is safe to rename functions and
-classes in the IDE. IDE will identify all usages and rename them in the container as well. You can declare all dependencies
-in a single `add` method and use `use` helper to reference other dependencies.
-
-```typescript
-container.add({
-  [Foo.name]: new Foo(),
-  [MyFactory.name]: MyFactory(),
-  [Foo.name]: object(Foo).construct(use(Bar)),
-});
-const foo = container.get(Foo);
-const buzz = container.get(MyFactory);
-```
+## Strict types
