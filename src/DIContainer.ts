@@ -28,14 +28,15 @@ export default class DIContainer<
     [name in keyof ContainerResolvers]?: any;
   } = {};
 
-  public add<N extends string, R extends any>(
+  public add<
+    N extends string,
+    R extends Factory<DIContainer<ContainerResolvers>>,
+  >(
     name: StringLiteral<N>,
     resolver: R,
   ): DIContainer<
     ContainerResolvers & {
-      [n in N]: R extends Factory<DIContainer<ContainerResolvers>>
-        ? ReturnType<R>
-        : R;
+      [n in N]: ReturnType<R>;
     }
   > {
     this.resolvers = {
@@ -47,7 +48,7 @@ export default class DIContainer<
 
   public get<Name extends keyof ContainerResolvers>(
     dependencyName: Name,
-  ): ReturnType<ContainerResolvers[Name]> {
+  ): ContainerResolvers[Name] {
     if (this.resolvedDependencies[dependencyName] !== undefined) {
       return this.resolvedDependencies[dependencyName];
     }
@@ -56,12 +57,11 @@ export default class DIContainer<
     if (!resolver) {
       throw new DependencyIsMissingError(dependencyName as string);
     }
-    if (typeof resolver === 'function') {
+    if (typeof resolver === "function") {
       this.resolvedDependencies[dependencyName] = resolver(this);
     } else {
       this.resolvedDependencies[dependencyName] = resolver;
     }
-
 
     return this.resolvedDependencies[dependencyName];
   }

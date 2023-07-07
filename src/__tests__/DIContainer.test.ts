@@ -1,24 +1,9 @@
 import { describe, expect, test } from "vitest";
-import DIContainer from "../DIContainer";
+import DIContainer from "../";
 import { Bar, Foo } from "./fakeClasses";
 import { DependencyIsMissingError } from "../errors";
 
 describe("DIContainer typescript type resolution", () => {
-  test("if resolves type as given raw values without factories", () => {
-    const container = new DIContainer()
-      .add("a", 123)
-      .add("b", new Date("2029-01-01"))
-      .add("c", "string")
-      .add("bar", new Bar())
-      .add("factory", () => 123);
-
-    expect(container.get("a")).toEqual(123);
-    expect(container.get("b")).toEqual(new Date("2029-01-01"));
-    expect(container.get("c")).toEqual("string");
-    expect(container.get("bar")).toEqual(new Bar());
-    expect(container.get("factory")).toEqual(123);
-  });
-
   test("if resolves type as given raw values", () => {
     const container = new DIContainer()
       .add("a", () => 123)
