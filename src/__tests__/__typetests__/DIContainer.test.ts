@@ -16,6 +16,7 @@ describe("DIContainer typescript type resolution", () => {
 
     // @ts-ignore
     expectNotType<string>(container.get("key2"));
+    expectNotType<undefined>(container.get("key2"));
     // @ts-ignore
     expectNotType<number>(container.get("key1"));
     expectNotType<number>(container.get("d"));

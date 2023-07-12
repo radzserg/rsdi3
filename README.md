@@ -42,6 +42,8 @@ More thoughts in a [dedicated article](https://radzserg.medium.com/https-medium-
 - Does not requires decorators
 - Strict types resolution
 
+![strict type](https://github.com/radzserg/rsdi/raw/main/docs/RSDI_types.png "RSDI types")
+
 ## When to use
 
 `RSDI` is most effective in complex applications. When the complexity of your application is high, it becomes necessary to
