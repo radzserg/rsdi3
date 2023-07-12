@@ -65,4 +65,10 @@ export default class DIContainer<
 
     return this.resolvedDependencies[dependencyName];
   }
+
+  public extend<E extends (container: DIContainer<ContainerResolvers>) => any>(
+    f: E,
+  ): ReturnType<E> {
+    return f(this);
+  }
 }

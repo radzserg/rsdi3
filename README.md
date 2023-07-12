@@ -1,6 +1,8 @@
 # RSDI - Dependency Injection Container
 
-Simple and powerful dependency injection container for with strong type checking system.
+Simple and powerful dependency injection container for with strong type checking system. `rsdi` offers strong 
+type-safety due to its native TypeScript support. It leverages TypeScript's type system to provide compile-time checks 
+and ensure proper injection of dependencies.
 
 - [Motivation](#motivation)
 - [Features](#features)
@@ -39,7 +41,6 @@ More thoughts in a [dedicated article](https://radzserg.medium.com/https-medium-
 - Simple but powerful
 - Does not requires decorators
 - Strict types resolution
-- Works great with both javascript and typescript
 
 ## When to use
 

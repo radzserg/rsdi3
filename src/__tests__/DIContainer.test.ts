@@ -66,3 +66,20 @@ describe("DIContainer typescript type resolution", () => {
     expect(foo2.name).toEqual("name2");
   });
 });
+
+describe("DIContainer extend functions", () => {
+  test("extends container", () => {
+    const containerWithDatabase = () => {
+      return new DIContainer().add("a", () => "1").add("bar", () => new Bar());
+    };
+
+    const finalContainer = containerWithDatabase().extend((c) => {
+      return c.add("foo", (c) => new Foo(c.get("a"), c.get("bar")));
+    });
+
+    expect(finalContainer.get("a")).toEqual("1");
+    expect(finalContainer.get("bar")).toBeInstanceOf(Bar);
+    expect(finalContainer.get("foo")).toBeInstanceOf(Foo);
+    expect(finalContainer.get("foo").name).toEqual("1");
+  });
+});
