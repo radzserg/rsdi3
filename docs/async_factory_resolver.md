@@ -32,5 +32,5 @@ async function configureDI() {
 
 // main.ts
 const diContainer = await configureDI();
-const userRepository = diContainer.get<UserRepository>("UserRepository");
+const userRepository = diContainer.get("UserRepository");
 ```

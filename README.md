@@ -1,16 +1,14 @@
 # RSDI - Dependency Injection Container
 
 Simple and powerful dependency injection container for with strong type checking system. `rsdi` offers strong 
-type-safety due to its native TypeScript support. It leverages TypeScript's type system to provide compile-time checks 
-and ensure proper injection of dependencies.
+type-safety support. 
 
 - [Motivation](#motivation)
 - [Features](#features)
 - [When to use](#when-to-use)
 - [Architecture](#architecture)
-- [Usage](#usage)
-- [Typescript type resolution](#typescript-type-resolution)
-- [Dependency declaration](#dependency-declaration)
+- [How to use](#how-to-use)
+- [Strict types](#strict-types)
 - Wiki
   - [Async factory resolver](./docs/async_factory_resolver.md)
   - [DI Container vs Context](./docs/context_vs_container.md)
@@ -42,8 +40,6 @@ More thoughts in a [dedicated article](https://radzserg.medium.com/https-medium-
 - Does not requires decorators
 - Strict types resolution
 
-![strict type](https://github.com/radzserg/rsdi/raw/main/docs/RSDI_types.png "RSDI types")
-
 ## When to use
 
 `RSDI` is most effective in complex applications. When the complexity of your application is high, it becomes necessary to
@@ -64,7 +60,7 @@ web application as an example. Given that your application is quite large and ha
 - DB repositories,
 - Low level services
 
-![architecture](https://github.com/radzserg/rsdi/raw/main/docs/RSDI_architecture.jpg "RSDI Architecture")
+![architecture](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_architecture.jpg "RSDI Architecture")
 
 An application always has an entry point, whether it is a web application or a CLI application. This is the only place where you
 should configure your dependency injection container. The top level components will then have the lower level components
@@ -126,6 +122,8 @@ until the application really needs them. Your DI container initialization functi
 ```typescript
 import DIContainer from "rsdi";
 
+export type AppDIContainer = ReturnType<typeof configureDI>;
+
 export default function configureDI() {
   return new DIContainer()
     .add("dbConnection", buildDbConnection())
@@ -149,9 +147,9 @@ Let's map our web application routes to configured controllers
 // configure Express router
 export default function configureRouter(
   app: core.Express,
-  diContainer: IDIContainer,
+  diContainer: AppDIContainer,
 ) {
-  const usersController = diContainer.get(UsersController);
+  const usersController = diContainer.get("UsersController");
   app
     .route("/users")
     .get(usersController.list.bind(usersController))
@@ -177,3 +175,8 @@ The complete web application example can be found [here](https://radzserg.medium
 
 
 ## Strict types
+
+`rsdi` offers strong type-safety due to its native TypeScript support. It leverages TypeScript's type system to provide 
+compile-time checks and ensure proper injection of dependencies.  
+
+![strict type](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_types.png "RSDI types")
