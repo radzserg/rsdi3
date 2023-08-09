@@ -27,7 +27,7 @@ async function configureDI() {
 
   return new DIContainer()
     .add("DbConnection", dbConnection)
-    .add("UserRepository", (c) => new UserRepository(c.get("DbConnection")));
+    .add("UserRepository", (get) => new UserRepository(get("DbConnection")));
 }
 
 // main.ts

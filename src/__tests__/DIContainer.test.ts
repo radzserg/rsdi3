@@ -7,7 +7,7 @@ describe("DIContainer typescript type resolution", () => {
   test("if resolves type as given raw values", () => {
     const container = new DIContainer()
       .add("a", () => 123)
-      .add("d", (c) => c.get("a"))
+      .add("d", (get) => get("a"))
       .add("b", () => "string");
 
     expect(container.get("a")).toEqual(123);
@@ -19,7 +19,7 @@ describe("DIContainer typescript type resolution", () => {
     const container = new DIContainer()
       .add("a", () => "hello")
       .add("bar", () => new Bar())
-      .add("foo", (c) => new Foo(c.get("a"), c.get("bar")));
+      .add("foo", (get) => new Foo(get("a"), get("bar")));
 
     const foo = container.get("foo");
     expect(foo).toBeInstanceOf(Foo);
@@ -31,7 +31,7 @@ describe("DIContainer typescript type resolution", () => {
     const aConcat = (a: string) => a + "a";
     const container = new DIContainer()
       .add("a", () => "hello")
-      .add("aConcat", (c) => aConcat(c.get("a")));
+      .add("aConcat", (get) => aConcat(get("a")));
 
     const aConcatValue = container.get("aConcat");
     expect(aConcatValue).toEqual("helloa");
@@ -57,7 +57,7 @@ describe("DIContainer typescript type resolution", () => {
     const container = new DIContainer()
       .add("a", () => "name1")
       .add("bar", () => new Bar())
-      .add("foo", (c) => new Foo(c.get("a"), c.get("bar")));
+      .add("foo", (get) => new Foo(get("a"), get("bar")));
 
     const foo = container.get("foo");
     expect(foo.name).toEqual("name1");
@@ -74,7 +74,7 @@ describe("DIContainer extend functions", () => {
     };
 
     const finalContainer = containerWithDatabase().extend((c) => {
-      return c.add("foo", (c) => new Foo(c.get("a"), c.get("bar")));
+      return c.add("foo", (get) => new Foo(get("a"), get("bar")));
     });
 
     expect(finalContainer.get("a")).toEqual("1");

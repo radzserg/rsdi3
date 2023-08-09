@@ -1,13 +1,21 @@
 import { DependencyIsMissingError } from "./errors";
 
-type Factory<T extends DIContainer> = (container: T) => any;
+type ContainerGetter<ContainerResolvers extends ResolvedDependencies> = <
+  Name extends keyof ContainerResolvers,
+>(
+  dependencyName: Name,
+) => ContainerResolvers[Name];
+
+type Factory<ContainerResolvers extends ResolvedDependencies> = (
+  get: ContainerGetter<ContainerResolvers>,
+) => any;
 
 type ResolvedDependencies = {
   [k: string]: any;
 };
 
-type Resolvers<CR extends ResolvedDependencies, T extends DIContainer<CR>> = {
-  [k in keyof CR]?: Factory<DIContainer<T>>;
+type Resolvers<CR extends ResolvedDependencies> = {
+  [k in keyof CR]?: Factory<CR>;
 };
 
 type StringLiteral<T> = T extends string
@@ -19,19 +27,13 @@ type StringLiteral<T> = T extends string
 export default class DIContainer<
   ContainerResolvers extends ResolvedDependencies = {},
 > {
-  private resolvers: Resolvers<
-    ContainerResolvers,
-    DIContainer<ContainerResolvers>
-  > = {};
+  private resolvers: Resolvers<ContainerResolvers> = {};
 
   private resolvedDependencies: {
     [name in keyof ContainerResolvers]?: any;
   } = {};
 
-  public add<
-    N extends string,
-    R extends Factory<DIContainer<ContainerResolvers>>,
-  >(
+  public add<N extends string, R extends Factory<ContainerResolvers>>(
     name: StringLiteral<N>,
     resolver: R,
   ): DIContainer<
@@ -58,7 +60,7 @@ export default class DIContainer<
       throw new DependencyIsMissingError(dependencyName as string);
     }
     if (typeof resolver === "function") {
-      this.resolvedDependencies[dependencyName] = resolver(this);
+      this.resolvedDependencies[dependencyName] = resolver(this.get.bind(this));
     } else {
       this.resolvedDependencies[dependencyName] = resolver;
     }

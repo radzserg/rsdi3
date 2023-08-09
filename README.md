@@ -73,6 +73,19 @@ new user. A real application will consist of dozens of components. The logic of 
 complicated. This is just a demo. It's up to you to use classes or factory functions for the demonstration, and we'll
 use both.
 
+### Simple use-case 
+
+```typescript
+const container = new DIContainer()
+    .add("a", () => "name1")
+    .add("bar", () => new Bar())
+    .add("foo", (get) => new Foo(get("a"), get("bar")));
+
+const foo = container.get("foo");
+```
+
+### Real life example
+
 ```typescript
 // sample web application components
 
@@ -127,12 +140,12 @@ export type AppDIContainer = ReturnType<typeof configureDI>;
 export default function configureDI() {
   return new DIContainer()
     .add("dbConnection", buildDbConnection())
-    .add("userRepository", (c) =>
-      MyDbProviderUserRepository(c.get("dbConnection")),
+    .add("userRepository", (get) =>
+      MyDbProviderUserRepository(get("dbConnection")),
     )
-    .add("userRegistrator", (c) => new UserRegistrator(c.get("userRepository")))
-    .add("userController", (c) =>
-      UserController(c.get("userRepository"), c.get("userRegistrator")),
+    .add("userRegistrator", (get) => new UserRegistrator(get("userRepository")))
+    .add("userController", (get) =>
+      UserController(get("userRepository"), get("userRegistrator")),
     );
 }
 ```

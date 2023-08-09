@@ -1,7 +1,7 @@
 import DIContainer from "../../DIContainer";
-import { Bar, Foo } from "../fakeClasses";
-import { expectNotType, expectType } from "tsd";
-import { describe, expect, test } from "vitest";
+import { Bar } from "../fakeClasses";
+import { expectType } from "tsd";
+import { describe, test } from "vitest";
 
 describe("DIContainer typescript type resolution", () => {
   test("if resolves type as given raw values", () => {
