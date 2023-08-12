@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import DIContainer from "../";
 import { Bar, Foo } from "./fakeClasses";
-import { DependencyIsMissingError } from "../errors";
+import { DependencyIsMissingError, IncorrectInvocationError } from "../errors";
 
 describe("DIContainer typescript type resolution", () => {
   test("if resolves type as given raw values", () => {
@@ -68,13 +68,15 @@ describe("DIContainer typescript type resolution", () => {
   });
 
   test("cannot not add inside factory", () => {
-    const container = new DIContainer()
-      .add("a", () => "1")
-      .add("bar", () => new Bar());
-
-    return container.add("foo", (container) => {
+    const container = new DIContainer().add("foo", (container) => {
+      // @ts-ignore
       container.add("c", () => "2");
+      return 123;
     });
+
+    expect(() => {
+      container.get("foo");
+    }).toThrow(IncorrectInvocationError);
   });
 });
 
