@@ -1,13 +1,11 @@
-import { DependencyIsMissingError } from "./errors";
-
-type ContainerGetter<ContainerResolvers extends ResolvedDependencies> = <
-  Name extends keyof ContainerResolvers,
->(
-  dependencyName: Name,
-) => ContainerResolvers[Name];
+import {
+  DependencyIsMissingError,
+  ForbiddenNameError,
+  IncorrectInvocationError,
+} from "./errors";
 
 type Factory<ContainerResolvers extends ResolvedDependencies> = (
-  get: ContainerGetter<ContainerResolvers>,
+  resolvers: ContainerResolvers,
 ) => any;
 
 type ResolvedDependencies = {
@@ -24,6 +22,11 @@ type StringLiteral<T> = T extends string
     : T
   : never;
 
+type Container<ContainerResolvers extends ResolvedDependencies> =
+  DIContainer<ContainerResolvers> & ContainerResolvers;
+
+const containerMethods = ["add", "get", "extend"];
+
 export default class DIContainer<
   ContainerResolvers extends ResolvedDependencies = {},
 > {
@@ -33,19 +36,44 @@ export default class DIContainer<
     [name in keyof ContainerResolvers]?: any;
   } = {};
 
+  private context: ContainerResolvers = {} as ContainerResolvers;
+
+
+
   public add<N extends string, R extends Factory<ContainerResolvers>>(
     name: StringLiteral<N>,
     resolver: R,
-  ): DIContainer<
-    ContainerResolvers & {
-      [n in N]: ReturnType<R>;
+  ): Container<ContainerResolvers & { [n in N]: ReturnType<R> }> {
+    if (containerMethods.includes(name)) {
+      throw new ForbiddenNameError(name);
     }
-  > {
     this.resolvers = {
       ...this.resolvers,
       [name]: resolver,
     };
-    return this;
+
+    let updatedObject = this;
+    if (!this.hasOwnProperty(name)) {
+      updatedObject = Object.defineProperty(this, name, {
+        get() {
+          return this.get(name);
+        },
+      });
+    }
+
+    this.context = new Proxy(this, {
+      get(target, property) {
+        if (containerMethods.includes(property.toString())) {
+          throw new IncorrectInvocationError();
+        }
+        // @ts-ignore
+        return target[property]
+      },
+    }) as unknown as ContainerResolvers;
+
+    return updatedObject as this &
+      DIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> &
+      ContainerResolvers & { [n in N]: ReturnType<R> };
   }
 
   public get<Name extends keyof ContainerResolvers>(
@@ -59,18 +87,19 @@ export default class DIContainer<
     if (!resolver) {
       throw new DependencyIsMissingError(dependencyName as string);
     }
-    if (typeof resolver === "function") {
-      this.resolvedDependencies[dependencyName] = resolver(this.get.bind(this));
-    } else {
-      this.resolvedDependencies[dependencyName] = resolver;
-    }
+
+    this.resolvedDependencies[dependencyName] = resolver(this.context);
 
     return this.resolvedDependencies[dependencyName];
   }
 
-  public extend<E extends (container: DIContainer<ContainerResolvers>) => any>(
+  public extend<E extends (container: Container<ContainerResolvers>) => any>(
     f: E,
   ): ReturnType<E> {
-    return f(this);
+    return f(this.toContainer());
+  }
+
+  private toContainer(): Container<ContainerResolvers> {
+    return this as unknown as Container<ContainerResolvers>;
   }
 }
