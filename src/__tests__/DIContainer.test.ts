@@ -31,7 +31,7 @@ describe("DIContainer typescript type resolution", () => {
     const aConcat = (a: string) => a + "a";
     const container = new DIContainer()
       .add("a", () => "hello")
-      .add("aConcat", ({ a }) => aConcat(a));
+      .add("aConcat", (c) => aConcat(c.a));
 
     const aConcatValue = container.get("aConcat");
     expect(aConcatValue).toEqual("helloa");

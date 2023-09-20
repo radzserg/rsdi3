@@ -25,6 +25,8 @@ type StringLiteral<T> = T extends string
 type Container<ContainerResolvers extends ResolvedDependencies> =
   DIContainer<ContainerResolvers> & ContainerResolvers;
 
+const containerMethods = ["add", "get", "extend"];
+
 export default class DIContainer<
   ContainerResolvers extends ResolvedDependencies = {},
 > {
@@ -36,11 +38,13 @@ export default class DIContainer<
 
   private context: ContainerResolvers = {} as ContainerResolvers;
 
+
+
   public add<N extends string, R extends Factory<ContainerResolvers>>(
     name: StringLiteral<N>,
     resolver: R,
   ): Container<ContainerResolvers & { [n in N]: ReturnType<R> }> {
-    if (["add", "get", "extend"].includes(name)) {
+    if (containerMethods.includes(name)) {
       throw new ForbiddenNameError(name);
     }
     this.resolvers = {
@@ -59,7 +63,7 @@ export default class DIContainer<
 
     this.context = new Proxy(this, {
       get(target, property) {
-        if (["add", "get", "extend"].includes(property.toString())) {
+        if (containerMethods.includes(property.toString())) {
           throw new IncorrectInvocationError();
         }
         // @ts-ignore
