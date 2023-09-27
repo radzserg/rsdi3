@@ -79,9 +79,9 @@ use both.
 const container = new DIContainer()
     .add("a", () => "name1")
     .add("bar", () => new Bar())
-    .add("foo", (get) => new Foo(get("a"), get("bar")));
+    .add("foo", ({ a, bar}) => new Foo(a, bar));
 
-const foo = container.get("foo");
+const { foo } = container; // or container.get("foo");
 ```
 
 ### Real life example
@@ -140,12 +140,12 @@ export type AppDIContainer = ReturnType<typeof configureDI>;
 export default function configureDI() {
   return new DIContainer()
     .add("dbConnection", buildDbConnection())
-    .add("userRepository", (get) =>
-      MyDbProviderUserRepository(get("dbConnection")),
+    .add("userRepository", ({ dbConnection }) =>
+      MyDbProviderUserRepository(dbConnection),
     )
-    .add("userRegistrator", (get) => new UserRegistrator(get("userRepository")))
-    .add("userController", (get) =>
-      UserController(get("userRepository"), get("userRegistrator")),
+    .add("userRegistrator", ({ userRepository }) => new UserRegistrator(userRepository))
+    .add("userController", ({ userRepository, userRegistrator}) =>
+      UserController(userRepository, userRegistrator),
     );
 }
 ```
@@ -193,3 +193,7 @@ The complete web application example can be found [here](https://radzserg.medium
 compile-time checks and ensure proper injection of dependencies.  
 
 ![strict type](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_types.png "RSDI types")
+
+
+## Best practices
+

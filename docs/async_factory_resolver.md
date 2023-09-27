@@ -26,11 +26,10 @@ async function configureDI() {
   const dbConnection = await createConnections();
 
   return new DIContainer()
-    .add("DbConnection", dbConnection)
-    .add("UserRepository", (get) => new UserRepository(get("DbConnection")));
+    .add("dbConnection", dbConnection)
+    .add("userRepository", ({ dbConnection }) => new UserRepository( dbConnection ));
 }
 
 // main.ts
-const diContainer = await configureDI();
-const userRepository = diContainer.get("UserRepository");
+const { userRepository } = diContainer;
 ```

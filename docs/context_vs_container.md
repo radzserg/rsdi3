@@ -20,7 +20,6 @@ in big teams it can lead to redundantly cohesive project modules. Developers in 
 out of context, without thinking about the coherence in projects. Allocating a subsystem that is used by a context into
 a microservice can be a much more expensive task.
 
-
 The primary distinction between our use of context and dependency injection is that we don't transfer the container 
 between layers. Instead, we retrieve high-level components with their dependencies pre-injected at the uppermost level. 
 This could be in the form of a controller or even the entire application instance, which already possesses injected 
@@ -30,7 +29,7 @@ controllers.
 ```typescript
 // router.ts
 const configureRouter = (app: core.Express, diContainer: IDIContainer) => {
-  const usersController = diContainer.get("UsersController");
+  const { usersController } = diContainer;
   app.route('/users')
     .get(usersController.actionIndex)
     .post(usersController.actionCreate);
