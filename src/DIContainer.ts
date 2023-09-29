@@ -2,7 +2,7 @@ import {
   DependencyIsMissingError,
   ForbiddenNameError,
   IncorrectInvocationError,
-} from "./errors";
+} from "./errors.js";
 
 type Factory<ContainerResolvers extends ResolvedDependencies> = (
   resolvers: ContainerResolvers,
@@ -25,9 +25,17 @@ type StringLiteral<T> = T extends string
 type Container<ContainerResolvers extends ResolvedDependencies> =
   DIContainer<ContainerResolvers> & ContainerResolvers;
 
+type ExtendResolvers<
+  ContainerResolvers extends ResolvedDependencies,
+  N extends string,
+  R extends Factory<ContainerResolvers>,
+> = N extends keyof ContainerResolvers
+  ? Omit<ContainerResolvers, N> & { [n in N]: ReturnType<R> }
+  : ContainerResolvers & { [n in N]: ReturnType<R> };
+
 const containerMethods = ["add", "get", "extend"];
 
-export default class DIContainer<
+export class DIContainer<
   ContainerResolvers extends ResolvedDependencies = {},
 > {
   private resolvers: Resolvers<ContainerResolvers> = {};
@@ -38,12 +46,10 @@ export default class DIContainer<
 
   private context: ContainerResolvers = {} as ContainerResolvers;
 
-
-
   public add<N extends string, R extends Factory<ContainerResolvers>>(
     name: StringLiteral<N>,
     resolver: R,
-  ): Container<ContainerResolvers & { [n in N]: ReturnType<R> }> {
+  ): Container<ExtendResolvers<ContainerResolvers, N, R>> {
     if (containerMethods.includes(name)) {
       throw new ForbiddenNameError(name);
     }
@@ -67,13 +73,13 @@ export default class DIContainer<
           throw new IncorrectInvocationError();
         }
         // @ts-ignore
-        return target[property]
+        return target[property];
       },
     }) as unknown as ContainerResolvers;
 
     return updatedObject as this &
-      DIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> &
-      ContainerResolvers & { [n in N]: ReturnType<R> };
+      DIContainer<ExtendResolvers<ContainerResolvers, N, R>> &
+      ExtendResolvers<ContainerResolvers, N, R>;
   }
 
   public get<Name extends keyof ContainerResolvers>(

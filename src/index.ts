@@ -1,3 +1,2 @@
-import DIContainer from "./DIContainer";
+export { DIContainer } from "./DIContainer.js";
 
-export default DIContainer;
