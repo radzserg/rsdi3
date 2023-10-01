@@ -1,14 +1,14 @@
-# RSDI - Dependency Injection Container
+# RSDI - Simple & Strong-Type Dependency Injection Container
 
-Simple and powerful dependency injection container for with strong type checking system. `rsdi` offers strong 
-type-safety support. 
+Easily manage your project dependencies with RSDI. This library provides a robust type-checking system.
 
 - [Motivation](#motivation)
 - [Features](#features)
-- [When to use](#when-to-use)
+- [Best Use Cases](#best-use-cases)
 - [Architecture](#architecture)
 - [How to use](#how-to-use)
 - [Strict types](#strict-types)
+- - [Best Practices](#best-practices)
 - Wiki
   - [Async factory resolver](./docs/async_factory_resolver.md)
   - [DI Container vs Context](./docs/context_vs_container.md)
@@ -40,15 +40,12 @@ More thoughts in a [dedicated article](https://radzserg.medium.com/https-medium-
 - Does not requires decorators
 - Strict types resolution
 
-## When to use
+## Best Use Cases
 
 `RSDI` is most effective in complex applications. When the complexity of your application is high, it becomes necessary to
 break up huge components into smaller ones to control the complexity. You have components that use other components that
 use other components. You have application layers and a layer hierarchy. There is a need to transfer dependencies from
 the upper layers to the lower ones.
-
-You like and respect and use Dependency Injection and TDD. You have to use Dependency Injection in order to have proper
-unit tests. Tests that test only one module - class, component, function, but not integration with nested dependencies.
 
 ## Architecture
 
@@ -62,16 +59,15 @@ web application as an example. Given that your application is quite large and ha
 
 ![architecture](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_architecture.jpg "RSDI Architecture")
 
-An application always has an entry point, whether it is a web application or a CLI application. This is the only place where you
-should configure your dependency injection container. The top level components will then have the lower level components
-injected.
+Every application, whether it's a web app or a command-line tool, starts at an entry point. This is where you should 
+set up your dependency injection container. Once set up, the top-level parts of your app will automatically get the 
+lower-level parts they need. For web servers, the dependency injection container will manage a pre-configured router, 
+which will already include the necessary controllers.
 
 # How to use
 
-Let's take a simple web application as an example. We will cut into a small part of the application that registers a
-new user. A real application will consist of dozens of components. The logic of the components will be much more
-complicated. This is just a demo. It's up to you to use classes or factory functions for the demonstration, and we'll
-use both.
+Let's look at a basic web app that registers new users as an example. Keep in mind, a real-world app has many more 
+parts and the logic is usually more complex. This is just a quick demo to show you the ropes.
 
 ### Simple use-case 
 
@@ -81,7 +77,7 @@ const container = new DIContainer()
     .add("bar", () => new Bar())
     .add("foo", ({ a, bar}) => new Foo(a, bar));
 
-const { foo } = container; // or container.get("foo");
+const { foo } = container; // alternatively  container.get("foo");
 ```
 
 ### Real life example
@@ -114,7 +110,7 @@ export class UserRegistrator {
   }
 }
 
-export function MyDbProviderUserRepository(db: Knex): UserRepository {
+export function MyDbProviderUserRepository(db: DbConnection): UserRepository {
   return {
     async saveNewUser(userAccountData: SignupData): Promise<void> {
       await this.db("insert").insert(userAccountData);
@@ -122,8 +118,8 @@ export function MyDbProviderUserRepository(db: Knex): UserRepository {
   };
 }
 
-export function buildDbConnection(): Knex {
-  return knex({
+export function buildDbConnection(): DbConnection {
+  return connectToDb({
     /* db credentials */
   });
 }
@@ -150,9 +146,10 @@ export default function configureDI() {
 }
 ```
 
-`container.get` - return type based on declaration.
-
-**All resolvers are resolved only once and their result persists over the life of the container.**
+When a resolver is called for the first time, it's resolved once and the result is saved. From then on, the saved 
+result is used.  If you want to change a dependency, don't use the add method; use the update method instead. 
+This way, you won't accidentally replace dependencies. If you need to mock a dependency for testing, that's when 
+you'd want to override it.
 
 Let's map our web application routes to configured controllers
 
@@ -162,11 +159,11 @@ export default function configureRouter(
   app: core.Express,
   diContainer: AppDIContainer,
 ) {
-  const usersController = diContainer.get("UsersController");
+  const { usersController } = diContainer;
   app
     .route("/users")
-    .get(usersController.list.bind(usersController))
-    .post(usersController.create.bind(usersController));
+    .get(usersController.list)
+    .post(usersController.create);
 }
 ```
 
@@ -179,9 +176,7 @@ const app = express();
 const diContainer = configureDI();
 configureRouter(app, diContainer);
 
-app.listen(8000, () => {
-  console.log(`⚡️[server]: Server is running`);
-});
+app.listen(8000);
 ```
 
 The complete web application example can be found [here](https://radzserg.medium.com/dependency-injection-in-express-application-dd85295694ab)
@@ -194,6 +189,36 @@ compile-time checks and ensure proper injection of dependencies.
 
 ![strict type](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_types.png "RSDI types")
 
-
 ## Best practices
 
+As your application expands, you'll likely need to divide your DI container across multiple files for better 
+organization. You might have a main `diContainer.ts` file for the core DI setup, and a separate `controllers.ts`, 
+`validators.ts` etc. This approach keeps your code clean and easy to manage.
+
+```typescript
+
+// diContainer.ts
+
+export const configureDI = async () => {
+  return (await buildDatabaseDependencies())
+    .extend(addDataAccessDependencies)
+    .extend(addValidators);
+}
+
+// buildDatabaseDependencies.ts
+export type DIWithPool = Awaited<ReturnType<typeof buildDatabaseDependencies>>;
+export const buildDatabaseDependencies = async () => {
+  const pool = await createDatabasePool();
+  const longRunningPool = await createLongRunningDatabasePool();
+  return new DIContainer()
+    .add("databasePool", () => pool)
+    .add("longRunningDatabasePool", () => longRunningPool);
+};
+
+//  addValidators.ts
+    export type DIWithValidators = ReturnType<typeof addValidators>;
+    export const addValidators = (container: DIWithPool) => {
+      return container
+        .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
+        .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
+    };

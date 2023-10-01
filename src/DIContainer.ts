@@ -53,7 +53,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   /**
    * Updates existing dependency resolver. If dependency with given name does not exist it will throw an error.
    * In most cases you don't need to override dependencies and should use add method instead. This approach will
-   * help you to avoid to override dependencies by mistake.
+   * help you to avoid overriding dependencies by mistake.
    *
    * You may want to override dependency if you want to mock it in tests.
    *
