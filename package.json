@@ -1,6 +1,6 @@
 {
   "name": "rsdi",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "TypeScript dependency injection container. Strong types without decorators.",
   "scripts": {
     "build": "tsc",
@@ -21,6 +21,9 @@
       "eslint"
     ]
   },
+  "files": [
+    "dist/**"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
