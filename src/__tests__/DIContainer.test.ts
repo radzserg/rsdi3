@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import DIContainer from "../";
 import { Bar, Foo } from "./fakeClasses";
-import { DependencyIsMissingError, IncorrectInvocationError } from "../errors";
+import { DenyOverrideDependencyError, DependencyIsMissingError, IncorrectInvocationError } from "../errors";
+import { DIContainer } from "../DIContainer.js";
 
 describe("DIContainer typescript type resolution", () => {
   test("if resolves type as given raw values", () => {
@@ -37,13 +37,18 @@ describe("DIContainer typescript type resolution", () => {
     expect(aConcatValue).toEqual("helloa");
   });
 
-  test("it allows to override resolvers by key", () => {
+  test("deny override resolvers by key", () => {
     const container = new DIContainer()
-      .add("key1", () => "key1")
-      .add("key1", () => "key2");
+      .add("key1", () => "value 1")
+
+    expect(() => {
+      container
+        // @ts-ignore
+        .add("key1", () => new Date());
+    }).toThrow(new DenyOverrideDependencyError("key1"));
 
     const value = container.get("key1");
-    expect(value).toEqual("key2");
+    expect(value).toEqual("value 1");
   });
 
   test("it throws an error if definition is missing during resolution", () => {

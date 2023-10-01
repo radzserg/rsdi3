@@ -1,43 +1,24 @@
 import {
+  DenyOverrideDependencyError,
   DependencyIsMissingError,
   ForbiddenNameError,
   IncorrectInvocationError,
 } from "./errors.js";
+import {
+  Container,
+  DenyInputKeys,
+  Factory,
+  ResolvedDependencies,
+  Resolvers,
+  StringLiteral,
+} from "./types";
 
-type Factory<ContainerResolvers extends ResolvedDependencies> = (
-  resolvers: ContainerResolvers,
-) => any;
+const containerMethods = ["add", "get", "extend", "update"];
 
-type ResolvedDependencies = {
-  [k: string]: any;
-};
-
-type Resolvers<CR extends ResolvedDependencies> = {
-  [k in keyof CR]?: Factory<CR>;
-};
-
-type StringLiteral<T> = T extends string
-  ? string extends T
-    ? never
-    : T
-  : never;
-
-type Container<ContainerResolvers extends ResolvedDependencies> =
-  DIContainer<ContainerResolvers> & ContainerResolvers;
-
-type ExtendResolvers<
-  ContainerResolvers extends ResolvedDependencies,
-  N extends string,
-  R extends Factory<ContainerResolvers>,
-> = N extends keyof ContainerResolvers
-  ? Omit<ContainerResolvers, N> & { [n in N]: ReturnType<R> }
-  : ContainerResolvers & { [n in N]: ReturnType<R> };
-
-const containerMethods = ["add", "get", "extend"];
-
-export class DIContainer<
-  ContainerResolvers extends ResolvedDependencies = {},
-> {
+/**
+ * Dependency injection container
+ */
+export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   private resolvers: Resolvers<ContainerResolvers> = {};
 
   private resolvedDependencies: {
@@ -46,13 +27,116 @@ export class DIContainer<
 
   private context: ContainerResolvers = {} as ContainerResolvers;
 
+  /**
+   * Adds new dependency resolver to the container. If dependency with given name already exists it will throw an error.
+   * Use update method instead. It will override existing dependency.
+   *
+   * @param name
+   * @param resolver
+   */
   public add<N extends string, R extends Factory<ContainerResolvers>>(
-    name: StringLiteral<N>,
+    name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
     resolver: R,
-  ): Container<ExtendResolvers<ContainerResolvers, N, R>> {
+  ): Container<ContainerResolvers & { [n in N]: ReturnType<R> }> {
     if (containerMethods.includes(name)) {
       throw new ForbiddenNameError(name);
     }
+
+    if (this.has(name)) {
+      throw new DenyOverrideDependencyError(name);
+    }
+
+    return this.setValue(name, resolver) as this &
+      Container<ContainerResolvers & { [n in N]: ReturnType<R> }>;
+  }
+
+  /**
+   * Updates existing dependency resolver. If dependency with given name does not exist it will throw an error.
+   * In most cases you don't need to override dependencies and should use add method instead. This approach will
+   * help you to avoid to override dependencies by mistake.
+   *
+   * You may want to override dependency if you want to mock it in tests.
+   *
+   * @param name
+   * @param resolver
+   */
+  public update<
+    N extends keyof ContainerResolvers,
+    R extends Factory<ContainerResolvers>,
+  >(
+    name: StringLiteral<N>,
+    resolver: R,
+  ): Container<Omit<ContainerResolvers, N> & { [n in N]: ReturnType<R> }> {
+    if (containerMethods.includes(name)) {
+      throw new ForbiddenNameError(name);
+    }
+
+    if (this.has(name)) {
+      throw new DependencyIsMissingError(name);
+    }
+
+    return this.setValue(name, resolver) as this &
+      Container<Omit<ContainerResolvers, N> & { [n in N]: ReturnType<R> }>;
+  }
+
+  /**
+   * Checks if dependency with given name exists
+   * @param name
+   */
+  public has(name: string): boolean {
+    return this.resolvers.hasOwnProperty(name);
+  }
+
+  /**
+   * Resolve dependency by name. Alternatively you can use property access to resolve dependency.
+   * For example: const { a, b } = container;
+   * @param dependencyName
+   */
+  public get<Name extends keyof ContainerResolvers>(
+    dependencyName: Name,
+  ): ContainerResolvers[Name] {
+    if (this.resolvedDependencies[dependencyName] !== undefined) {
+      return this.resolvedDependencies[dependencyName];
+    }
+
+    const resolver = this.resolvers[dependencyName];
+    if (!resolver) {
+      throw new DependencyIsMissingError(dependencyName as string);
+    }
+
+    this.resolvedDependencies[dependencyName] = resolver(this.context);
+
+    return this.resolvedDependencies[dependencyName];
+  }
+
+  /**
+   * Extends container with given function. It will pass container as an argument to the function.
+   * Function should return new container with extended resolvers.
+   * It is useful when you want to split your container into multiple files.
+   * You can create a file with resolvers and extend container with it.
+   * You can also use it to create multiple containers with different resolvers.
+   *
+   * For example:
+   *
+   *     const container = new DIContainer()
+   *       .extend(addValidators)
+   *
+   *     export type DIWithValidators = ReturnType<typeof addValidators>;
+   *     export const addValidators = (container: DIWithDataAccessors) => {
+   *       return container
+   *         .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
+   *         .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
+   *     };
+   *
+   * @param f
+   */
+  public extend<E extends (container: Container<ContainerResolvers>) => any>(
+    f: E,
+  ): ReturnType<E> {
+    return f(this.toContainer());
+  }
+
+  private setValue(name: string, resolver: Factory<ContainerResolvers>) {
     this.resolvers = {
       ...this.resolvers,
       [name]: resolver,
@@ -77,32 +161,7 @@ export class DIContainer<
       },
     }) as unknown as ContainerResolvers;
 
-    return updatedObject as this &
-      DIContainer<ExtendResolvers<ContainerResolvers, N, R>> &
-      ExtendResolvers<ContainerResolvers, N, R>;
-  }
-
-  public get<Name extends keyof ContainerResolvers>(
-    dependencyName: Name,
-  ): ContainerResolvers[Name] {
-    if (this.resolvedDependencies[dependencyName] !== undefined) {
-      return this.resolvedDependencies[dependencyName];
-    }
-
-    const resolver = this.resolvers[dependencyName];
-    if (!resolver) {
-      throw new DependencyIsMissingError(dependencyName as string);
-    }
-
-    this.resolvedDependencies[dependencyName] = resolver(this.context);
-
-    return this.resolvedDependencies[dependencyName];
-  }
-
-  public extend<E extends (container: Container<ContainerResolvers>) => any>(
-    f: E,
-  ): ReturnType<E> {
-    return f(this.toContainer());
+    return updatedObject;
   }
 
   private toContainer(): Container<ContainerResolvers> {

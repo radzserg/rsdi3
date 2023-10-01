@@ -1,6 +1,6 @@
 {
   "name": "rsdi",
-  "version": "3.0.0-alpha.2",
+  "version": "3.0.0",
   "description": "TypeScript dependency injection container. Strong types without decorators.",
   "scripts": {
     "build": "tsc",
@@ -24,7 +24,7 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "homepage": "https://github.com/radzserg/rsdi",
+  "homepage": "https://github.com/radzserg/rsdi3",
   "author": "Sergey Radzishevskii <radzserg@gmail.com>",
   "license": "ISC",
   "devDependencies": {

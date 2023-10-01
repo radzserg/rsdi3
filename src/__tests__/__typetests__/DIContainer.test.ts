@@ -1,4 +1,4 @@
-import DIContainer from "../../DIContainer";
+import { DIContainer } from "../../DIContainer";
 import { Bar } from "../fakeClasses";
 import { expectType, expectNotType } from "tsd";
 import { describe, test } from "vitest";
@@ -23,7 +23,7 @@ describe("DIContainer typescript type resolution", () => {
   test("if override the type", () => {
     const container = new DIContainer()
       .add("a", () => "string")
-      .add("a", () => new Date());
+      .update("a", () => new Date());
 
     expectType<Date>(container.a);
     expectNotType<string>(container.a);
