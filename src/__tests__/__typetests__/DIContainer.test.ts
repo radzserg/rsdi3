@@ -20,7 +20,7 @@ describe("DIContainer typescript type resolution", () => {
     expectType<unknown>(container.d);
   });
 
-  test("if override the type", () => {
+  test("it overrides the type", () => {
     const container = new DIContainer()
       .add("a", () => "string")
       .update("a", () => new Date());

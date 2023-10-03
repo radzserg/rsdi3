@@ -1,10 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { Bar, Foo } from "./fakeClasses";
-import { DenyOverrideDependencyError, DependencyIsMissingError, IncorrectInvocationError } from "../errors";
+import {
+  DenyOverrideDependencyError,
+  DependencyIsMissingError,
+  IncorrectInvocationError,
+} from "../errors";
 import { DIContainer } from "../DIContainer.js";
 
 describe("DIContainer typescript type resolution", () => {
-  test("if resolves type as given raw values", () => {
+  test("it resolves type as given raw values", () => {
     const container = new DIContainer()
       .add("a", () => 123)
       .add("d", ({ a }) => a)
@@ -15,7 +19,7 @@ describe("DIContainer typescript type resolution", () => {
     expect(container.get("d")).toEqual(123);
   });
 
-  test("if resolves object", () => {
+  test("it resolves object", () => {
     const container = new DIContainer()
       .add("a", () => "hello")
       .add("bar", () => new Bar())
@@ -27,7 +31,7 @@ describe("DIContainer typescript type resolution", () => {
     expect(foo.bar).toBeInstanceOf(Bar);
   });
 
-  test("if resolves function", () => {
+  test("it resolves function", () => {
     const aConcat = (a: string) => a + "a";
     const container = new DIContainer()
       .add("a", () => "hello")
@@ -37,9 +41,8 @@ describe("DIContainer typescript type resolution", () => {
     expect(aConcatValue).toEqual("helloa");
   });
 
-  test("deny override resolvers by key", () => {
-    const container = new DIContainer()
-      .add("key1", () => "value 1")
+  test("deny override resolvers by key with add method", () => {
+    const container = new DIContainer().add("key1", () => "value 1");
 
     expect(() => {
       container
@@ -49,6 +52,15 @@ describe("DIContainer typescript type resolution", () => {
 
     const value = container.get("key1");
     expect(value).toEqual("value 1");
+  });
+
+  test("override resolvers by key with update method", () => {
+    const container = new DIContainer().add("key1", () => "value 1");
+
+    container.update("key1", () => true);
+
+    const value = container.get("key1");
+    expect(value).toEqual(true);
   });
 
   test("it throws an error if definition is missing during resolution", () => {

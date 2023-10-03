@@ -5,9 +5,9 @@ import {
   IncorrectInvocationError,
 } from "./errors.js";
 import {
-  Container,
   DenyInputKeys,
   Factory,
+  IDIContainer,
   ResolvedDependencies,
   Resolvers,
   StringLiteral,
@@ -37,7 +37,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   public add<N extends string, R extends Factory<ContainerResolvers>>(
     name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
     resolver: R,
-  ): Container<ContainerResolvers & { [n in N]: ReturnType<R> }> {
+  ): IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> {
     if (containerMethods.includes(name)) {
       throw new ForbiddenNameError(name);
     }
@@ -47,7 +47,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     }
 
     return this.setValue(name, resolver) as this &
-      Container<ContainerResolvers & { [n in N]: ReturnType<R> }>;
+      IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }>;
   }
 
   /**
@@ -66,17 +66,29 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   >(
     name: StringLiteral<N>,
     resolver: R,
-  ): Container<Omit<ContainerResolvers, N> & { [n in N]: ReturnType<R> }> {
+  ): IDIContainer<
+    {
+      [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
+    } & {
+      [n in N]: ReturnType<R>;
+    }
+  > {
     if (containerMethods.includes(name)) {
       throw new ForbiddenNameError(name);
     }
 
-    if (this.has(name)) {
+    if (!this.has(name)) {
       throw new DependencyIsMissingError(name);
     }
 
     return this.setValue(name, resolver) as this &
-      Container<Omit<ContainerResolvers, N> & { [n in N]: ReturnType<R> }>;
+      IDIContainer<
+        {
+          [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
+        } & {
+          [n in N]: ReturnType<R>;
+        }
+      >;
   }
 
   /**
@@ -130,7 +142,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    *
    * @param f
    */
-  public extend<E extends (container: Container<ContainerResolvers>) => any>(
+  public extend<E extends (container: IDIContainer<ContainerResolvers>) => any>(
     f: E,
   ): ReturnType<E> {
     return f(this.toContainer());
@@ -164,7 +176,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     return updatedObject;
   }
 
-  private toContainer(): Container<ContainerResolvers> {
-    return this as unknown as Container<ContainerResolvers>;
+  private toContainer(): IDIContainer<ContainerResolvers> {
+    return this as unknown as IDIContainer<ContainerResolvers>;
   }
 }
