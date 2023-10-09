@@ -19,7 +19,7 @@ class UserRepository {
 
 // configureDI.ts
 import { createConnections } from "my-orm-library";
-import DIContainer from "rsdi";
+import { DIContainer } from "rsdi";
 
 async function configureDI() {
   // initialize async factories before DI container initialisation
