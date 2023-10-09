@@ -3,7 +3,7 @@
 
 ```typescript
 
-import DIContainer from "../DIContainer";
+import { DIContainer } from "../DIContainer";
 import { Bar, Foo } from "./fakeClasses";
 
 const container = new DIContainer()

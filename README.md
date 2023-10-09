@@ -129,7 +129,7 @@ Now we need to configure the dependency injection container before use. Dependen
 until the application really needs them. Your DI container initialization function - `configureDI` will include:
 
 ```typescript
-import DIContainer from "rsdi";
+import { DIContainer } from "rsdi";
 
 export type AppDIContainer = ReturnType<typeof configureDI>;
 
@@ -205,9 +205,9 @@ export const configureDI = async () => {
     .extend(addValidators);
 }
 
-// buildDatabaseDependencies.ts
+// addDataAccessDependencies.ts
 export type DIWithPool = Awaited<ReturnType<typeof buildDatabaseDependencies>>;
-export const buildDatabaseDependencies = async () => {
+export const addDataAccessDependencies = async () => {
   const pool = await createDatabasePool();
   const longRunningPool = await createLongRunningDatabasePool();
   return new DIContainer()
@@ -216,9 +216,9 @@ export const buildDatabaseDependencies = async () => {
 };
 
 //  addValidators.ts
-    export type DIWithValidators = ReturnType<typeof addValidators>;
-    export const addValidators = (container: DIWithPool) => {
-      return container
-        .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
-        .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
-    };
+export type DIWithValidators = ReturnType<typeof addValidators>;
+export const addValidators = (container: DIWithPool) => {
+  return container
+    .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
+    .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
+};
