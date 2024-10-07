@@ -106,6 +106,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    */
   public get<Name extends keyof ContainerResolvers>(
     dependencyName: Name,
+    changeContext?: { [key: string]: any },
   ): ContainerResolvers[Name] {
     if (this.resolvedDependencies[dependencyName] !== undefined) {
       return this.resolvedDependencies[dependencyName];
@@ -114,6 +115,10 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     const resolver = this.resolvers[dependencyName];
     if (!resolver) {
       throw new DependencyIsMissingError(dependencyName as string);
+    }
+
+    if (changeContext) {
+      return resolver({ ...this.context, ...changeContext });
     }
 
     this.resolvedDependencies[dependencyName] = resolver(this.context);

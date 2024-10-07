@@ -95,6 +95,67 @@ describe("DIContainer typescript type resolution", () => {
       container.get("foo");
     }).toThrow(IncorrectInvocationError);
   });
+
+  test("should return class with custom context", () => {
+    class Logger {
+      public context: string | null = null;
+    }
+
+    class Controller {
+      constructor(public logger: Logger) {}
+    }
+
+    const container = new DIContainer()
+      .add("logger", () => new Logger())
+      .add("controller", ({ logger }) => new Controller(logger));
+
+    const logger = new Logger();
+    logger.context = "custom context";
+    const controller = container.get("controller", { logger });
+
+    expect(controller.logger.context).toBe("custom context");
+
+    const otherController = container.get("controller");
+    expect(otherController.logger.context).toBeNull();
+  });
+
+  test("should return class with custom context even at inner deps", () => {
+    class Logger {
+      public context: string | null = null;
+    }
+
+    class Service {
+      constructor(public logger: Logger) {}
+    }
+
+    class Controller {
+      constructor(
+        public logger: Logger,
+        public service: Service,
+      ) {}
+    }
+
+    const container = new DIContainer()
+      .add("logger", () => new Logger())
+      .add("service", ({ logger }) => new Service(logger))
+      .add(
+        "controller",
+        ({ logger, service }) => new Controller(logger, service),
+      );
+
+    const logger = new Logger();
+    logger.context = "custom context";
+    const service = container.get("service", { logger });
+    const controller = container.get("controller", { logger, service });
+
+    expect(controller.logger.context).toBe("custom context");
+    expect(service.logger.context).toBe("custom context");
+    expect(controller.service.logger.context).toBe("custom context");
+
+    const otherController = container.get("controller");
+    expect(otherController.logger.context).toBeNull();
+    expect(otherController.service.logger.context).toBeNull();
+  });
 });
 
 describe("DIContainer extend functions", () => {
