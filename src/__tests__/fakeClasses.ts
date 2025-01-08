@@ -48,4 +48,4 @@ export abstract class AbstractFoo {
 
 export class FooChild extends AbstractFoo {}
 
-export const anyType = () => ({} as unknown as any);
+export const anyType = () => ({}) as unknown as any;
