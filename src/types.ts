@@ -46,5 +46,6 @@ export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
     ) => ReturnType<E>;
     get: <Name extends keyof ContainerResolvers>(
       dependencyName: Name,
+      changeContext?: { [key: string]: any },
     ) => ContainerResolvers[Name];
   };

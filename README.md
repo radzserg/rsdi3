@@ -222,3 +222,30 @@ export const addValidators = (container: DIWithPool) => {
     .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
     .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
 };
+```
+
+If you need a custom dependency to use specific context you can do as follows as example:
+
+```typescript
+class Logger {
+  public context: string | null = null;
+}
+
+class Controller {
+  constructor(public logger: Logger) {}
+}
+
+container
+  .add("logger", () => new Logger())
+  .add("controller", ({ logger }) => new Controller(logger));
+
+const logger = new Logger();
+logger.context = "UserController";
+const controller = container.get("controller", { logger });
+
+console.log(controller.logger.context); // UserController
+
+const dashboardController = container.get("controller");
+
+console.log(dashboardController.logger.context); // null
+```
