@@ -32,11 +32,7 @@ export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
       name: StringLiteral<N>,
       resolver: R,
     ) => IDIContainer<
-      // types are quite complex here, so we have to simplify them as much as possible.
-      // do not use Omit here
-      {
-        [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
-      } & {
+        { [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P] } & {
         [n in N]: ReturnType<R>;
       }
     >;
