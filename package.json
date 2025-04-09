@@ -4,7 +4,8 @@
   "description": "TypeScript dependency injection container. Strong types without decorators.",
   "scripts": {
     "build": "tsc",
-    "test": "vitest"
+    "test": "vitest",
+    "prepare": "husky"
   },
   "keywords": [
     "dependency injection",
@@ -17,8 +18,7 @@
   ],
   "lint-staged": {
     "src/**/*.ts": [
-      "prettier --write --ignore-unknown",
-      "eslint"
+      "eslint --fix"
     ]
   },
   "files": [
@@ -31,13 +31,13 @@
   "author": "Sergey Radzishevskii <radzserg@gmail.com>",
   "license": "ISC",
   "devDependencies": {
-    "eslint": "^9.11.1",
-    "husky": "^9.1.6",
-    "lint-staged": "^15.2.10",
-    "prettier": "^3.3.3",
+    "eslint": "^9.24.0",
+    "eslint-config-canonical": "^44.9.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0",
     "tsd": "^0.31.2",
-    "typescript": "^5.6.2",
-    "vitest": "^2.1.1"
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1"
   },
   "packageManager": "pnpm@10.6.3+sha512.bb45e34d50a9a76e858a95837301bfb6bd6d35aea2c5d52094fa497a467c43f5c440103ce2511e9e0a2f89c3d6071baac3358fc68ac6fb75e2ceb3d2736065e6"
 }

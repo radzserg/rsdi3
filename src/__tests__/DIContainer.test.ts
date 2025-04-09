@@ -6,7 +6,6 @@ import {
   IncorrectInvocationError,
 } from "../errors";
 import { DIContainer } from "../DIContainer.js";
-import { IDIContainer } from "../types";
 
 describe("DIContainer typescript type resolution", () => {
   test("it resolves type as given raw values", () => {
