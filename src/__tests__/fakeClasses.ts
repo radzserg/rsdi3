@@ -1,36 +1,8 @@
-export abstract class AbstractFoo {
-  public items: string[] = [];
-
-  public name: string;
-
-  public service: Bar;
-
-  constructor(name: string, service: Bar) {
-    this.name = name;
-    this.service = service;
-  }
-
-  addItem(item: string) {
-    this.items.push(item);
-  }
-}
-
-export class Bar {
-  public buzz() {
-    return 'buzz';
-  }
-}
-
-export class Buzz {
-  public getClassName() {
-    return 'RealBuzz';
-  }
-}
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
+export class Bar {}
 
 export class Foo {
   public bar: Bar;
-
-  public items: string[] = [];
 
   public name: string;
 
@@ -46,13 +18,4 @@ export class Foo {
 
     this.bar = bar;
   }
-
-  addItem(item: string) {
-    this.items.push(item);
-  }
 }
-
-export class FooChild extends AbstractFoo {}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const anyType = () => ({}) as unknown as any;
