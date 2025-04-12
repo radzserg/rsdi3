@@ -29,6 +29,9 @@ jobs:
         run: pnpm install
 
       - name: Lint with ESLint
+        run: npx tsc
+
+      - name: Lint with ESLint
         run: npx eslint
 
       - name: Test
