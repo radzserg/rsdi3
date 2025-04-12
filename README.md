@@ -1,6 +1,6 @@
 # RSDI - Simple & Strong-Type Dependency Injection Container
 
-Easily manage your project dependencies with RSDI. This library provides a robust type-checking system.
+Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI container with full TypeScript support — no decorators or metadata required.
 
 - [Motivation](#motivation)
 - [Features](#features)
@@ -15,9 +15,8 @@ Easily manage your project dependencies with RSDI. This library provides a robus
 
 ## Motivation
 
-Popular dependency injection libraries utilize reflect-metadata to retrieve argument types and use those types
-to carry out autowiring. Autowiring is an advantageous feature, but it necessitates the wrapping of all your
-components with decorators.
+Most DI libraries rely on reflect-metadata and decorators to auto-wire dependencies. But this tightly couples 
+your business logic to a framework — and adds complexity:
 
 ```typescript
 @injectable()
@@ -27,49 +26,51 @@ class Foo {
 // Notice how in order to allow the use of the empty constructor new Foo(), 
 // we need to make the parameters optional, e.g. database?: Database.
 ```
+Why should your core logic even know it’s injectable?
 
-Why should component Foo be aware that it's injectable?
+RSDI avoids this by using explicit factory functions — making your code clean, framework-agnostic, and easier to test.
 
-Your business logic relies on a particular framework, which isn't part of your domain model and is subject to change.
+RSDI avoids this by letting you define dependencies in a simple and clear way — keeping your code clean, decoupled from frameworks, and easy to test.
 
-More thoughts in a [dedicated article](https://radzserg.medium.com/https-medium-com-radzserg-dependency-injection-in-react-part-2-995e93b3327c)
+[Read more](https://radzserg.medium.com/https-medium-com-radzserg-dependency-injection-in-react-part-2-995e93b3327c)
 
 ## Features
 
-- Simple but powerful
-- Does not requires decorators
-- Strict types resolution
+- No decorators
+- Strong TypeScript support
+- Simple API
+- No runtime dependencies
+- Easy to mock and test
 
 ## Best Use Cases
 
-`RSDI` is most effective in complex applications. When the complexity of your application is high, it becomes necessary to
-break up huge components into smaller ones to control the complexity. You have components that use other components that
-use other components. You have application layers and a layer hierarchy. There is a need to transfer dependencies from
-the upper layers to the lower ones.
+Use `RSDI` when your app grows in complexity:
+
+- You break big modules into smaller ones
+- You have deep dependency trees (A → B → C)
+- You want to pass dependencies across layers:
+  - Controllers
+  - Domain managers
+  - Repositories
+  - Infrastructure services
 
 ## Architecture
 
-`RSDI` expects (but does not require) that you build all your dependencies into a dependency tree. Let's take a typical
-web application as an example. Given that your application is quite large and has many layers:
+`RSDI` works best when you organize your app as a dependency tree.
 
-- controllers (REST or graphql handlers)
-- domain model handlers (your domain models, various managers, use-cases etc)
-- DB repositories,
-- Low level services
+A typical backend app might have:
+- Controllers (REST or GraphQL)
+- Domain managers (use-cases, handlers)
+- Repositories (DB access)
+- Infrastructure (DB pools, loggers)
 
 ![architecture](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_architecture.jpg "RSDI Architecture")
 
-Every application, whether it's a web app or a command-line tool, starts at an entry point. This is where you should 
-set up your dependency injection container. Once set up, the top-level parts of your app will automatically get the 
-lower-level parts they need. For web servers, the dependency injection container will manage a pre-configured router, 
-which will already include the necessary controllers.
+Set up your DI container at the app entry point — from there, all other parts can pull in what they need.
 
 # How to use
 
-Let's look at a basic web app that registers new users as an example. Keep in mind, a real-world app has many more 
-parts and the logic is usually more complex. This is just a quick demo to show you the ropes.
-
-### Simple use-case 
+### Basic Example
 
 ```typescript
 const container = new DIContainer()
@@ -80,7 +81,7 @@ const container = new DIContainer()
 const { foo } = container; // alternatively  container.get("foo");
 ```
 
-### Real life example
+### Real-World Example
 
 ```typescript
 // sample web application components
@@ -125,8 +126,8 @@ export function buildDbConnection(): DbConnection {
 }
 ```
 
-Now we need to configure the dependency injection container before use. Dependencies are declared and not really initiated
-until the application really needs them. Your DI container initialization function - `configureDI` will include:
+Now let’s configure the dependency injection container. Dependencies are only created when they’re actually needed. 
+Your `configureDI` function will declare and connect everything in one place.
 
 ```typescript
 import { DIContainer } from "rsdi";
@@ -146,10 +147,10 @@ export default function configureDI() {
 }
 ```
 
-When a resolver is called for the first time, it's resolved once and the result is saved. From then on, the saved 
-result is used.  If you want to change a dependency, don't use the add method; use the update method instead. 
-This way, you won't accidentally replace dependencies. If you need to mock a dependency for testing, that's when 
-you'd want to override it.
+When a resolver runs for the first time, its result is cached and reused for future calls. 
+
+By default, you should always use .add() to register dependencies. If you need to replace an existing one — usually 
+in tests — you can use .update() instead. This avoids accidental overwrites and keeps your setup predictable.
 
 Let's map our web application routes to configured controllers
 
@@ -167,7 +168,7 @@ export default function configureRouter(
 }
 ```
 
-Add `configureDI` in the entry point of your application.
+Add `configureDI()` in your app’s entry point:
 
 ```typescript
 // express.ts
@@ -178,22 +179,28 @@ configureRouter(app, diContainer);
 
 app.listen(8000);
 ```
-
-The complete web application example can be found [here](https://radzserg.medium.com/dependency-injection-in-express-application-dd85295694ab)
+ 
+🔗 Full example: [Express + RSDI](https://radzserg.medium.com/dependency-injection-in-express-application-dd85295694ab)
 
 
 ## Strict types
 
-`rsdi` offers strong type-safety due to its native TypeScript support. It leverages TypeScript's type system to provide 
-compile-time checks and ensure proper injection of dependencies.  
+`RSDI` uses TypeScript’s type system to validate dependency trees at compile time, not runtime.
 
 ![strict type](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_types.png "RSDI types")
 
+This gives you autocomplete and safety without decorators or metadata hacks.
+
 ## Best practices
 
-As your application expands, you'll likely need to divide your DI container across multiple files for better 
-organization. You might have a main `diContainer.ts` file for the core DI setup, and a separate `controllers.ts`, 
-`validators.ts` etc. This approach keeps your code clean and easy to manage.
+As your application grows, it’s a good idea to split your DI container setup into multiple files. This helps keep 
+your code organized and easier to maintain.
+
+For example, you might have a main diContainer.ts file that sets up the core container, and then separate files like 
+controllers.ts, validators.ts, or dataAccess.ts that each register a group of related dependencies.
+
+This modular approach makes it easier to manage changes, test in isolation, and understand how dependencies are wired 
+across different parts of your app.
 
 ```typescript
 
