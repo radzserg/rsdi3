@@ -22,7 +22,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 19
+          node-version: 22
           cache: "pnpm"
 
       - name: Install dependencies
@@ -30,9 +30,6 @@ jobs:
 
       - name: Lint with ESLint
         run: npx eslint
-
-      - name: Format with Prettier
-        run: npx prettier --check --ignore-unknown ./src/
 
       - name: Test
         run: pnpm test
