@@ -1,6 +1,5 @@
 import { DIContainer } from '../../DIContainer.js';
 import { Bar } from '../fakeClasses.js';
-// @ts-expect-error - it's tsd issue
 import { expectNotType, expectType } from 'tsd';
 import { describe, test } from 'vitest';
 

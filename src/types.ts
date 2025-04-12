@@ -37,6 +37,9 @@ export type ResolvedDependencies = {
   [k: string]: ResolvedDependencyValue;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ResolvedDependencyValue = any;
+
 export type Resolvers<CR extends ResolvedDependencies> = {
   [k in keyof CR]?: Factory<CR>;
 };
@@ -46,6 +49,3 @@ export type StringLiteral<T> = T extends string
     ? never
     : T
   : never;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ResolvedDependencyValue = any;

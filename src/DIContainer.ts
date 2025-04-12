@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   DenyOverrideDependencyError,
   DependencyIsMissingError,
@@ -10,6 +9,7 @@ import {
   type Factory,
   type IDIContainer,
   type ResolvedDependencies,
+  type ResolvedDependencyValue,
   type Resolvers,
   type StringLiteral,
 } from './types.js';
@@ -23,7 +23,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   private context: ContainerResolvers = {} as ContainerResolvers;
 
   private resolvedDependencies: {
-    [name in keyof ContainerResolvers]?: any;
+    [name in keyof ContainerResolvers]?: ResolvedDependencyValue;
   } = {};
 
   private resolvers: Resolvers<ContainerResolvers> = {};
@@ -72,9 +72,14 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * };
    * @param diConfigurationFactory
    */
-  public extend<E extends (container: IDIContainer<ContainerResolvers>) => any>(
-    diConfigurationFactory: E,
-  ): ReturnType<E> {
+  public extend<
+    Extension extends ResolvedDependencies,
+    FactoryFunction extends (
+      container: IDIContainer<ContainerResolvers>,
+    ) => IDIContainer<ContainerResolvers & Extension>,
+  >(
+    diConfigurationFactory: FactoryFunction,
+  ): IDIContainer<ContainerResolvers & Extension> {
     return diConfigurationFactory(this.toContainer());
   }
 
