@@ -1,6 +1,6 @@
 import { DIContainer } from '../../DIContainer.js';
-import { Bar } from '../fakeClasses.js';
-import { expectNotType, expectType } from 'tsd';
+import { Bar, Foo } from '../fakeClasses.js';
+import { expectNotType, expectType, printType } from 'tsd';
 import { describe, test } from 'vitest';
 
 describe('DIContainer typescript type resolution', () => {
@@ -36,6 +36,23 @@ describe('DIContainer typescript type resolution', () => {
     const container = containerA.merge(containerB);
 
     expectType<Date>(container.b);
-    expectNotType<string>(container.a);
+    expectType<string>(container.a);
+  });
+
+  test('extend function', () => {
+    const containerA = () => {
+      return new DIContainer().add('a', () => '1').add('bar', () => new Bar());
+    };
+
+    const finalContainer = containerA().extend((container) => {
+      return container.add('foo', ({ a, bar }) => {
+        return new Foo(a, bar);
+      });
+    });
+
+    printType(finalContainer);
+    expectType<string>(finalContainer.a);
+    expectType<Bar>(finalContainer.bar);
+    expectType<Foo>(finalContainer.foo);
   });
 });

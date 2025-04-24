@@ -4,8 +4,11 @@
   "description": "TypeScript dependency injection container. Strong types without decorators.",
   "scripts": {
     "build": "tsc",
-    "test": "vitest",
+    "test": "vitest --run && tsd",
     "prepare": "husky"
+  },
+  "tsd": {
+    "directory": "src/__tests__/__typetests__"
   },
   "keywords": [
     "dependency injection",

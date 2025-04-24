@@ -94,16 +94,11 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * @param diConfigurationFactory
    */
   public extend<
-    Extension extends ResolvedDependencies,
-    FactoryFunction extends (
-      container: IDIContainer<ContainerResolvers>,
-    ) => IDIContainer<ContainerResolvers & Extension>,
-  >(
-    diConfigurationFactory: FactoryFunction,
-  ): IDIContainer<ContainerResolvers & Extension> {
+    E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer,
+  >(diConfigurationFactory: E): ReturnType<E> {
     return diConfigurationFactory(
       this as unknown as IDIContainer<ContainerResolvers>,
-    );
+    ) as ReturnType<E>;
   }
 
   /**

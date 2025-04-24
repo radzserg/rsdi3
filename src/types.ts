@@ -11,14 +11,19 @@ export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
       name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
       resolver: R,
     ) => IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }>;
+    // extend: <
+    //   Extension extends ResolvedDependencies,
+    //   FactoryFunction extends (
+    //     container: IDIContainer<ContainerResolvers>,
+    //   ) => IDIContainer<ContainerResolvers & Extension>,
+    // >(
+    //   f: FactoryFunction,
+    // ) => IDIContainer<ContainerResolvers & Extension>;
     extend: <
-      Extension extends ResolvedDependencies,
-      FactoryFunction extends (
-        container: IDIContainer<ContainerResolvers>,
-      ) => IDIContainer<ContainerResolvers & Extension>,
+      E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer,
     >(
-      f: FactoryFunction,
-    ) => IDIContainer<ContainerResolvers & Extension>;
+      f: E,
+    ) => ReturnType<E>;
     get: <Name extends keyof ContainerResolvers>(
       dependencyName: Name,
     ) => ContainerResolvers[Name];
