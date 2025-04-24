@@ -229,3 +229,35 @@ export const addValidators = (container: DIWithPool) => {
     .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
     .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
 };
+```
+
+
+
+### Merging Containers
+
+You can merge two containers into one. This is useful for combining dependencies from different parts of your 
+application — for example, merging core services with feature-specific dependencies.
+
+```typescript
+
+const containerA = new DIContainer()
+  .add("a", () => "1")
+  .add("bar", () => new Bar());
+
+const containerB = new DIContainer()
+  .add("b", () => "b")
+  .add("buzz", () => new Buzz("buzz"));
+
+const finalContainer = containerA.merge(containerB);
+
+console.log(finalContainer.a); // "1"
+console.log(finalContainer.b); // "b"
+console.log(finalContainer.bar instanceof Bar); // true
+console.log(finalContainer.buzz.name); // "buzz"
+
+```
+
+- The resulting container is a new instance.
+The original containers stay unchanged.
+- If both containers define the same dependency, the merging container’s value takes priority.
+- Resolved dependencies remain shared — they are not re-created.

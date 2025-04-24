@@ -4,7 +4,7 @@ import {
   DependencyIsMissingError,
   IncorrectInvocationError,
 } from '../errors.js';
-import { Bar, Buzz, Foo } from './fakeClasses.js';
+import { Bar, Foo } from './__helpers__/fakeClasses.js';
 import { describe, expect, test } from 'vitest';
 
 describe('DIContainer typescript type resolution', () => {
@@ -95,67 +95,5 @@ describe('DIContainer typescript type resolution', () => {
     expect(() => {
       container.get('foo');
     }).toThrow(IncorrectInvocationError);
-  });
-});
-
-describe('DIContainer extend functions', () => {
-  test('extends container', () => {
-    const containerWithDatabase = () => {
-      return new DIContainer().add('a', () => '1').add('bar', () => new Bar());
-    };
-
-    const finalContainer = containerWithDatabase().extend((container) => {
-      return container.add('foo', ({ a, bar }) => {
-        return new Foo(a, bar);
-      });
-    });
-
-    expect(finalContainer.get('a')).toEqual('1');
-    expect(finalContainer.get('bar')).toBeInstanceOf(Bar);
-    expect(finalContainer.get('foo')).toBeInstanceOf(Foo);
-    expect(finalContainer.get('foo').name).toEqual('1');
-  });
-});
-
-describe('DIContainer merge containers', () => {
-  test('extends container', () => {
-    const containerA = new DIContainer()
-      .add('a', () => '1')
-      .add('bar', () => new Bar());
-
-    const containerB = new DIContainer()
-      .add('b', () => 'b')
-      .add('buzz', () => new Buzz('buzz'));
-
-    const finalContainer = containerA.merge(containerB);
-
-    expect(finalContainer.a).toEqual('1');
-    expect(finalContainer.b).toEqual('b');
-    expect(finalContainer.bar).toBeInstanceOf(Bar);
-    expect(finalContainer.buzz.name).toEqual('buzz');
-  });
-
-  test('extends container - merger container overwrites properties', () => {
-    const containerA = new DIContainer().add('a', () => '1');
-
-    const containerB = new DIContainer().add('a', () => '2');
-
-    const finalContainer = containerA.merge(containerB);
-
-    expect(finalContainer.a).toEqual('2');
-  });
-
-  test('extends container - resolved properties only once', () => {
-    const containerA = new DIContainer().add('buzz', () => new Buzz('buzz'));
-    const buzzInstance = containerA.buzz;
-    expect(buzzInstance.name).toEqual('buzz');
-
-    buzzInstance.name = 'buzz2';
-
-    const containerB = new DIContainer().add('a', () => '2');
-
-    const finalContainer = containerA.merge(containerB);
-
-    expect(finalContainer.buzz.name).toEqual('buzz2');
   });
 });

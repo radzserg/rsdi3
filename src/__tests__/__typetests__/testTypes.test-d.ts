@@ -1,6 +1,7 @@
+// eslint-disable-next-line canonical/filename-match-regex
 import { DIContainer } from '../../DIContainer.js';
-import { Bar, Foo } from '../fakeClasses.js';
-import { expectNotType, expectType, printType } from 'tsd';
+import { Bar, Foo } from '../__helpers__/fakeClasses.js';
+import { expectNotType, expectType } from 'tsd';
 import { describe, test } from 'vitest';
 
 describe('DIContainer typescript type resolution', () => {
@@ -50,7 +51,7 @@ describe('DIContainer typescript type resolution', () => {
       });
     });
 
-    printType(finalContainer);
+    // printType(finalContainer);
     expectType<string>(finalContainer.a);
     expectType<Bar>(finalContainer.bar);
     expectType<Foo>(finalContainer.foo);
