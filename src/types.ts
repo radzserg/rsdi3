@@ -12,14 +12,20 @@ export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
       resolver: R,
     ) => IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }>;
     extend: <
-      E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer,
+      Extension extends ResolvedDependencies,
+      FactoryFunction extends (
+        container: IDIContainer<ContainerResolvers>,
+      ) => IDIContainer<ContainerResolvers & Extension>,
     >(
-      f: E,
-    ) => ReturnType<E>;
+      f: FactoryFunction,
+    ) => IDIContainer<ContainerResolvers & Extension>;
     get: <Name extends keyof ContainerResolvers>(
       dependencyName: Name,
     ) => ContainerResolvers[Name];
     has: (name: string) => boolean;
+    merge: <OtherContainerResolvers extends ResolvedDependencies>(
+      container: IDIContainer<OtherContainerResolvers>,
+    ) => IDIContainer<ContainerResolvers & OtherContainerResolvers>;
     update: <
       N extends keyof ContainerResolvers,
       R extends Factory<ContainerResolvers>,

@@ -26,7 +26,19 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     [name in keyof ContainerResolvers]?: ResolvedDependencyValue;
   } = {};
 
-  private resolvers: Resolvers<ContainerResolvers> = {};
+  public constructor(private resolvers: Resolvers<ContainerResolvers> = {}) {
+    this.context = new Proxy(this, {
+      get(target, property) {
+        const propertyName =
+          property.toString() as keyof DIContainer<ContainerResolvers>;
+        if (containerMethods.includes(propertyName)) {
+          throw new IncorrectInvocationError();
+        }
+
+        return target[propertyName];
+      },
+    }) as unknown as ContainerResolvers;
+  }
 
   /**
    * Adds new dependency resolver to the container. If dependency with given name already exists it will throw an error.
@@ -46,10 +58,19 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       throw new DenyOverrideDependencyError(name);
     }
 
-    return this.setValue(name, resolver) as IDIContainer<
+    this.setValue(name, resolver);
+
+    return this as IDIContainer<
       ContainerResolvers & { [n in N]: ReturnType<R> }
     > &
       this;
+  }
+
+  public export(): ResolvedDependencies {
+    return {
+      resolvedDependencies: this.resolvedDependencies,
+      resolvers: this.resolvers,
+    };
   }
 
   /**
@@ -80,7 +101,9 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   >(
     diConfigurationFactory: FactoryFunction,
   ): IDIContainer<ContainerResolvers & Extension> {
-    return diConfigurationFactory(this.toContainer());
+    return diConfigurationFactory(
+      this as unknown as IDIContainer<ContainerResolvers>,
+    );
   }
 
   /**
@@ -114,6 +137,41 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   }
 
   /**
+   * Merges two containers. It will return a new container with merged resolvers.
+   * @param otherContainer
+   */
+  public merge<OtherContainerResolvers extends ResolvedDependencies>(
+    otherContainer: DIContainer<OtherContainerResolvers>,
+  ): DIContainer<ContainerResolvers & OtherContainerResolvers> {
+    const {
+      resolvedDependencies: newresolvedDependencies,
+      resolvers: newResolvers,
+    } = otherContainer.export();
+
+    const newProperties = Object.keys(newResolvers).filter(
+      (key) => !this.has(key),
+    );
+
+    this.resolvers = {
+      ...this.resolvers,
+      ...newResolvers,
+    };
+
+    this.resolvedDependencies = {
+      ...this.resolvedDependencies,
+      ...newresolvedDependencies,
+    };
+
+    for (const property of newProperties) {
+      this.addContainerProperty(property);
+    }
+
+    return this as unknown as DIContainer<
+      ContainerResolvers & OtherContainerResolvers
+    >;
+  }
+
+  /**
    * Updates existing dependency resolver. If dependency with given name does not exist it will throw an error.
    * In most cases you don't need to override dependencies and should use add method instead. This approach will
    * help you to avoid overriding dependencies by mistake.
@@ -143,7 +201,9 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       throw new DependencyIsMissingError(name);
     }
 
-    return this.setValue(name, resolver) as IDIContainer<
+    this.setValue(name, resolver);
+
+    return this as unknown as IDIContainer<
       {
         [n in N]: ReturnType<R>;
       } & {
@@ -153,12 +213,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       this;
   }
 
-  private setValue(name: string, resolver: Factory<ContainerResolvers>) {
-    this.resolvers = {
-      ...this.resolvers,
-      [name]: resolver,
-    };
-
+  private addContainerProperty(name: string) {
     // eslint-disable-next-line unicorn/no-this-assignment, @typescript-eslint/no-this-alias, consistent-this
     let updatedObject = this;
     if (!Object.prototype.hasOwnProperty.call(this, name)) {
@@ -169,22 +224,18 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       });
     }
 
-    this.context = new Proxy(this, {
-      get(target, property) {
-        const propertyName =
-          property.toString() as keyof DIContainer<ContainerResolvers>;
-        if (containerMethods.includes(propertyName)) {
-          throw new IncorrectInvocationError();
-        }
-
-        return target[propertyName];
-      },
-    }) as unknown as ContainerResolvers;
-
     return updatedObject;
   }
 
-  private toContainer(): IDIContainer<ContainerResolvers> {
-    return this as unknown as IDIContainer<ContainerResolvers>;
+  /**
+   * Sets value to the container
+   */
+  private setValue(name: string, resolver: Factory<ContainerResolvers>): void {
+    this.resolvers = {
+      ...this.resolvers,
+      [name]: resolver,
+    };
+
+    this.addContainerProperty(name);
   }
 }

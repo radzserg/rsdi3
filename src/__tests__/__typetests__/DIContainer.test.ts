@@ -28,4 +28,14 @@ describe('DIContainer typescript type resolution', () => {
     expectType<Date>(container.a);
     expectNotType<string>(container.a);
   });
+
+  test('merge containers', () => {
+    const containerA = new DIContainer().add('a', () => 'string');
+    const containerB = new DIContainer().add('b', () => new Date());
+
+    const container = containerA.merge(containerB);
+
+    expectType<Date>(container.b);
+    expectNotType<string>(container.a);
+  });
 });
