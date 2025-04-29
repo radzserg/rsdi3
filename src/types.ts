@@ -13,6 +13,7 @@ export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
       name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
       resolver: R,
     ) => IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }>;
+    clone: () => IDIContainer<ContainerResolvers>;
     extend: <
       E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer,
     >(

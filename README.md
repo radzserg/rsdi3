@@ -248,7 +248,7 @@ const containerB = new DIContainer()
   .add("b", () => "b")
   .add("buzz", () => new Buzz("buzz"));
 
-const finalContainer = containerA.merge(containerB);
+containerA.merge(containerB);
 
 console.log(finalContainer.a); // "1"
 console.log(finalContainer.b); // "b"
@@ -257,7 +257,7 @@ console.log(finalContainer.buzz.name); // "buzz"
 
 ```
 
-- The resulting container is a new instance.
+- The result is the new container with merged resolvers.
 The original containers stay unchanged.
 - If both containers define the same dependency, the merging container’s value takes priority.
 - Resolved dependencies remain shared — they are not re-created.

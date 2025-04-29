@@ -20,13 +20,15 @@ const containerMethods = ['add', 'get', 'extend', 'update'];
  * Dependency injection container
  */
 export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
-  private context: ContainerResolvers = {} as ContainerResolvers;
-
-  private resolvedDependencies: {
+  protected resolvedDependencies: {
     [name in keyof ContainerResolvers]?: ResolvedDependencyValue;
   } = {};
 
-  public constructor(private resolvers: Resolvers<ContainerResolvers> = {}) {
+  protected resolvers: Resolvers<ContainerResolvers> = {};
+
+  private context: ContainerResolvers = {} as ContainerResolvers;
+
+  public constructor() {
     this.context = new Proxy(this, {
       get(target, property) {
         const propertyName =
@@ -64,6 +66,29 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       ContainerResolvers & { [n in N]: ReturnType<R> }
     > &
       this;
+  }
+
+  /**
+   * Creates a new container instance with the same resolvers.
+   *
+   * Useful when you want to share a base container across different modules.
+   * For example, you can define a base container with shared dependencies,
+   * then clone it to create separate DI configurations for different bounded contexts.
+   *
+   * The cloned container is a new instance but retains all the original resolvers.
+   */
+  public clone(): DIContainer<ContainerResolvers> {
+    const {
+      resolvedDependencies: newresolvedDependencies,
+      resolvers: newResolvers,
+    } = this.export();
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    const newContainer = new ClonedDiContainer(
+      newResolvers,
+      newresolvedDependencies,
+    );
+
+    return newContainer as DIContainer<ContainerResolvers>;
   }
 
   public export(): ResolvedDependencies {
@@ -137,33 +162,26 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    */
   public merge<OtherContainerResolvers extends ResolvedDependencies>(
     otherContainer: DIContainer<OtherContainerResolvers>,
-  ): DIContainer<ContainerResolvers & OtherContainerResolvers> {
+  ): IDIContainer<ContainerResolvers & OtherContainerResolvers> {
     const {
       resolvedDependencies: newresolvedDependencies,
       resolvers: newResolvers,
     } = otherContainer.export();
 
-    const newProperties = Object.keys(newResolvers).filter(
-      (key) => !this.has(key),
-    );
-
-    this.resolvers = {
+    const resolvers = {
       ...this.resolvers,
       ...newResolvers,
     };
 
-    this.resolvedDependencies = {
+    const resolvedDependencies = {
       ...this.resolvedDependencies,
       ...newresolvedDependencies,
     };
-
-    for (const property of newProperties) {
-      this.addContainerProperty(property);
-    }
-
-    return this as unknown as DIContainer<
-      ContainerResolvers & OtherContainerResolvers
-    >;
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    return new ClonedDiContainer(
+      resolvers,
+      resolvedDependencies,
+    ) as unknown as IDIContainer<ContainerResolvers & OtherContainerResolvers>;
   }
 
   /**
@@ -208,6 +226,29 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       this;
   }
 
+  protected setResolvers<CR extends ResolvedDependencies>(
+    resolvers: Resolvers<CR>,
+    resolvedDependencies: {
+      [name in keyof CR]: ResolvedDependencyValue;
+    },
+  ) {
+    if (Object.keys(this.resolvers).length !== 0) {
+      throw new Error(
+        'Cannot set resolved dependencies after resolvers are defined',
+      );
+    }
+
+    // @ts-expect-error - we are setting resolvers
+    this.resolvers = resolvers;
+    // @ts-expect-error - we are setting resolvedDependencies
+    this.resolvedDependencies = {
+      ...resolvedDependencies,
+    };
+    for (const property of Object.keys(this.resolvers)) {
+      this.addContainerProperty(property);
+    }
+  }
+
   private addContainerProperty(name: string) {
     // eslint-disable-next-line unicorn/no-this-assignment, @typescript-eslint/no-this-alias, consistent-this
     let updatedObject = this;
@@ -232,5 +273,19 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     };
 
     this.addContainerProperty(name);
+  }
+}
+
+class ClonedDiContainer<
+  ContainerResolvers extends ResolvedDependencies = {},
+> extends DIContainer<ContainerResolvers> {
+  public constructor(
+    resolvers: Resolvers<ContainerResolvers>,
+    resolvedDependencies: {
+      [name in keyof ContainerResolvers]: ResolvedDependencyValue;
+    },
+  ) {
+    super();
+    this.setResolvers(resolvers, resolvedDependencies);
   }
 }

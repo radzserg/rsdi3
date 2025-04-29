@@ -30,7 +30,7 @@ describe('DIContainer merge containers', () => {
     expect(finalContainer.buzz.name).toEqual('buzz');
   });
 
-  test('merge 2 containers - merger container overwrites properties', () => {
+  test('merge 2 containers - merged container overwrites properties', () => {
     const containerA = new DIContainer().add('a', () => '1');
 
     const containerB = new DIContainer().add('a', () => '2');

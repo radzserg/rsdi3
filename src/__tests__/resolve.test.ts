@@ -14,6 +14,8 @@ describe('DIContainer typescript type resolution', () => {
       .add('d', ({ a }) => a)
       .add('b', () => 'string');
 
+    container.add('v', () => new Date());
+
     expect(container.get('a')).toEqual(123);
     expect(container.get('b')).toEqual('string');
     expect(container.get('d')).toEqual(123);
