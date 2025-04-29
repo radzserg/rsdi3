@@ -4,7 +4,7 @@ import {
   DependencyIsMissingError,
   IncorrectInvocationError,
 } from '../errors.js';
-import { Bar, Foo } from './fakeClasses.js';
+import { Bar, Foo } from './__helpers__/fakeClasses.js';
 import { describe, expect, test } from 'vitest';
 
 describe('DIContainer typescript type resolution', () => {
@@ -13,6 +13,8 @@ describe('DIContainer typescript type resolution', () => {
       .add('a', () => 123)
       .add('d', ({ a }) => a)
       .add('b', () => 'string');
+
+    container.add('v', () => new Date());
 
     expect(container.get('a')).toEqual(123);
     expect(container.get('b')).toEqual('string');
@@ -95,24 +97,5 @@ describe('DIContainer typescript type resolution', () => {
     expect(() => {
       container.get('foo');
     }).toThrow(IncorrectInvocationError);
-  });
-});
-
-describe('DIContainer extend functions', () => {
-  test('extends container', () => {
-    const containerWithDatabase = () => {
-      return new DIContainer().add('a', () => '1').add('bar', () => new Bar());
-    };
-
-    const finalContainer = containerWithDatabase().extend((container) => {
-      return container.add('foo', ({ a, bar }) => {
-        return new Foo(a, bar);
-      });
-    });
-
-    expect(finalContainer.get('a')).toEqual('1');
-    expect(finalContainer.get('bar')).toBeInstanceOf(Bar);
-    expect(finalContainer.get('foo')).toBeInstanceOf(Foo);
-    expect(finalContainer.get('foo').name).toEqual('1');
   });
 });
