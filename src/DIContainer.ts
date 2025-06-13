@@ -222,6 +222,9 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     }
 
     this.setValue(name, resolver);
+    if (Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name)) {
+      delete this.resolvedDependencies[name];
+    }
 
     return this as unknown as IDIContainer<
       {

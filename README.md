@@ -8,7 +8,7 @@ Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI co
 - [Architecture](#architecture)
 - [How to use](#how-to-use)
 - [Strict types](#strict-types)
-- - [Best Practices](#best-practices)
+- [Best Practices](#best-practices)
 - Wiki
   - [Async factory resolver](./docs/async_factory_resolver.md)
   - [DI Container vs Context](./docs/context_vs_container.md)
@@ -28,9 +28,7 @@ class Foo {
 ```
 Why should your core logic even know it’s injectable?
 
-RSDI avoids this by using explicit factory functions — making your code clean, framework-agnostic, and easier to test.
-
-RSDI avoids this by letting you define dependencies in a simple and clear way — keeping your code clean, decoupled from frameworks, and easy to test.
+RSDI avoids this by using explicit factory functions — keeping your code clean, framework-agnostic, and easy to test.
 
 [Read more](https://radzserg.medium.com/https-medium-com-radzserg-dependency-injection-in-react-part-2-995e93b3327c)
 
@@ -251,7 +249,7 @@ const containerB = new DIContainer()
   .add("b", () => "b")
   .add("buzz", () => new Buzz("buzz"));
 
-containerA.merge(containerB);
+const finalContainer = containerA.merge(containerB);
 
 console.log(finalContainer.a); // "1"
 console.log(finalContainer.b); // "b"
