@@ -14,7 +14,7 @@ import {
   type StringLiteral,
 } from './types.js';
 
-const containerMethods = ['add', 'get', 'extend', 'update'];
+const containerMethods = ['add', 'get', 'extend', 'update', 'merge', 'clone'];
 
 /**
  * Dependency injection container
@@ -26,7 +26,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 
   protected resolvers: Resolvers<ContainerResolvers> = {};
 
-  private context: ContainerResolvers = {} as ContainerResolvers;
+  private readonly context: ContainerResolvers = {} as ContainerResolvers;
 
   public constructor() {
     this.context = new Proxy(this, {
@@ -157,7 +157,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   }
 
   /**
-   * Merges two containers. It will return a new container with merged resolvers.
+   * Merges two containers. It will return a new container with merged resolvers. Resolved dependencies will be merged as well.
    * @param otherContainer
    */
   public merge<OtherContainerResolvers extends ResolvedDependencies>(
@@ -177,11 +177,18 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       ...this.resolvedDependencies,
       ...newresolvedDependencies,
     };
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    return new ClonedDiContainer(
-      resolvers,
-      resolvedDependencies,
-    ) as unknown as IDIContainer<ContainerResolvers & OtherContainerResolvers>;
+
+    this.resolvers = resolvers;
+    this.resolvedDependencies = {
+      ...resolvedDependencies,
+    };
+    for (const property of Object.keys(this.resolvers)) {
+      this.addContainerProperty(property);
+    }
+
+    return this as unknown as IDIContainer<
+      ContainerResolvers & OtherContainerResolvers
+    >;
   }
 
   /**

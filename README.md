@@ -235,11 +235,14 @@ export const addValidators = (container: DIWithPool) => {
 
 ### Merging Containers
 
-You can merge two containers into one. This is useful for combining dependencies from different parts of your 
-application — for example, merging core services with feature-specific dependencies.
+You can merge resolvers and resolved dependencies from two containers into one. This is useful for combining 
+dependencies from different parts of your  application — for example, merging core services with feature-specific dependencies.
+
+- Merging container will add resolvers and resolved dependencies from the other container.
+- If both containers define the same dependency, the merging container’s value takes priority.
+- Resolved dependencies remain shared — they are not re-created.
 
 ```typescript
-
 const containerA = new DIContainer()
   .add("a", () => "1")
   .add("bar", () => new Bar());
@@ -254,10 +257,23 @@ console.log(finalContainer.a); // "1"
 console.log(finalContainer.b); // "b"
 console.log(finalContainer.bar instanceof Bar); // true
 console.log(finalContainer.buzz.name); // "buzz"
-
 ```
 
-- The result is the new container with merged resolvers.
-The original containers stay unchanged.
-- If both containers define the same dependency, the merging container’s value takes priority.
-- Resolved dependencies remain shared — they are not re-created.
+### Cloning Container
+
+You can clone a container to create a new container with the same resolvers and resolved dependencies. 
+This is useful when you want to create a new bounded context with the same dependencies as the original container.
+Already resolved dependencies will be shared between the cloned container and the original container.
+
+```typescript
+const containerA = new DIContainer()
+  .add("a", () => "1")
+  .add("bar", () => new Bar())
+  .add("buzz", () => new Buzz("buzz"));
+
+const containerB = containerA.clone();
+
+console.log(containerB.a); // "1"
+console.log(containerB.bar instanceof Bar); // true
+console.log(containerB.buzz.name); // "buzz"
+```

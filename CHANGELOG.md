@@ -2,7 +2,7 @@
 
 # 3.0.5
 
-Added `merge` method to `DIContainer` class.
+Added `merge` and `clone` method to `DIContainer` class.
 
 # 3.0.0
 
