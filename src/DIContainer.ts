@@ -223,6 +223,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 
     this.setValue(name, resolver);
     if (Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name)) {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete this.resolvedDependencies[name];
     }
 
