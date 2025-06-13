@@ -1,3 +1,5 @@
+import { type DIContainer } from './DIContainer.js';
+
 export type DenyInputKeys<T, Disallowed> = T &
   (T extends Disallowed ? never : T);
 
@@ -11,6 +13,7 @@ export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
       name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
       resolver: R,
     ) => IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }>;
+    clone: () => IDIContainer<ContainerResolvers>;
     extend: <
       E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer,
     >(
@@ -20,6 +23,11 @@ export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
       dependencyName: Name,
     ) => ContainerResolvers[Name];
     has: (name: string) => boolean;
+    merge: <OtherContainerResolvers extends ResolvedDependencies>(
+      container:
+        | DIContainer<OtherContainerResolvers>
+        | IDIContainer<OtherContainerResolvers>,
+    ) => IDIContainer<ContainerResolvers & OtherContainerResolvers>;
     update: <
       N extends keyof ContainerResolvers,
       R extends Factory<ContainerResolvers>,

@@ -8,7 +8,7 @@ Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI co
 - [Architecture](#architecture)
 - [How to use](#how-to-use)
 - [Strict types](#strict-types)
-- - [Best Practices](#best-practices)
+- [Best Practices](#best-practices)
 - Wiki
   - [Async factory resolver](./docs/async_factory_resolver.md)
   - [DI Container vs Context](./docs/context_vs_container.md)
@@ -28,9 +28,7 @@ class Foo {
 ```
 Why should your core logic even know it’s injectable?
 
-RSDI avoids this by using explicit factory functions — making your code clean, framework-agnostic, and easier to test.
-
-RSDI avoids this by letting you define dependencies in a simple and clear way — keeping your code clean, decoupled from frameworks, and easy to test.
+RSDI avoids this by using explicit factory functions — keeping your code clean, framework-agnostic, and easy to test.
 
 [Read more](https://radzserg.medium.com/https-medium-com-radzserg-dependency-injection-in-react-part-2-995e93b3327c)
 
@@ -229,3 +227,51 @@ export const addValidators = (container: DIWithPool) => {
     .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
     .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
 };
+```
+
+
+
+### Merging Containers
+
+You can merge resolvers and resolved dependencies from two containers into one. This is useful for combining 
+dependencies from different parts of your  application — for example, merging core services with feature-specific dependencies.
+
+- Merging container will add resolvers and resolved dependencies from the other container.
+- If both containers define the same dependency, the merging container’s value takes priority.
+- Resolved dependencies remain shared — they are not re-created.
+
+```typescript
+const containerA = new DIContainer()
+  .add("a", () => "1")
+  .add("bar", () => new Bar());
+
+const containerB = new DIContainer()
+  .add("b", () => "b")
+  .add("buzz", () => new Buzz("buzz"));
+
+const finalContainer = containerA.merge(containerB);
+
+console.log(finalContainer.a); // "1"
+console.log(finalContainer.b); // "b"
+console.log(finalContainer.bar instanceof Bar); // true
+console.log(finalContainer.buzz.name); // "buzz"
+```
+
+### Cloning Container
+
+You can clone a container to create a new container with the same resolvers and resolved dependencies. 
+This is useful when you want to create a new bounded context with the same dependencies as the original container.
+Already resolved dependencies will be shared between the cloned container and the original container.
+
+```typescript
+const containerA = new DIContainer()
+  .add("a", () => "1")
+  .add("bar", () => new Bar())
+  .add("buzz", () => new Buzz("buzz"));
+
+const containerB = containerA.clone();
+
+console.log(containerB.a); // "1"
+console.log(containerB.bar instanceof Bar); // true
+console.log(containerB.buzz.name); // "buzz"
+```

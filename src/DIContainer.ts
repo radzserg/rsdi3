@@ -14,19 +14,33 @@ import {
   type StringLiteral,
 } from './types.js';
 
-const containerMethods = ['add', 'get', 'extend', 'update'];
+const containerMethods = ['add', 'get', 'extend', 'update', 'merge', 'clone'];
 
 /**
  * Dependency injection container
  */
 export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
-  private context: ContainerResolvers = {} as ContainerResolvers;
-
-  private resolvedDependencies: {
+  protected resolvedDependencies: {
     [name in keyof ContainerResolvers]?: ResolvedDependencyValue;
   } = {};
 
-  private resolvers: Resolvers<ContainerResolvers> = {};
+  protected resolvers: Resolvers<ContainerResolvers> = {};
+
+  private readonly context: ContainerResolvers = {} as ContainerResolvers;
+
+  public constructor() {
+    this.context = new Proxy(this, {
+      get(target, property) {
+        const propertyName =
+          property.toString() as keyof DIContainer<ContainerResolvers>;
+        if (containerMethods.includes(propertyName)) {
+          throw new IncorrectInvocationError();
+        }
+
+        return target[propertyName];
+      },
+    }) as unknown as ContainerResolvers;
+  }
 
   /**
    * Adds new dependency resolver to the container. If dependency with given name already exists it will throw an error.
@@ -46,10 +60,42 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       throw new DenyOverrideDependencyError(name);
     }
 
-    return this.setValue(name, resolver) as IDIContainer<
+    this.setValue(name, resolver);
+
+    return this as IDIContainer<
       ContainerResolvers & { [n in N]: ReturnType<R> }
     > &
       this;
+  }
+
+  /**
+   * Creates a new container instance with the same resolvers.
+   *
+   * Useful when you want to share a base container across different modules.
+   * For example, you can define a base container with shared dependencies,
+   * then clone it to create separate DI configurations for different bounded contexts.
+   *
+   * The cloned container is a new instance but retains all the original resolvers.
+   */
+  public clone(): DIContainer<ContainerResolvers> {
+    const {
+      resolvedDependencies: newresolvedDependencies,
+      resolvers: newResolvers,
+    } = this.export();
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    const newContainer = new ClonedDiContainer(
+      newResolvers,
+      newresolvedDependencies,
+    );
+
+    return newContainer as DIContainer<ContainerResolvers>;
+  }
+
+  public export(): ResolvedDependencies {
+    return {
+      resolvedDependencies: this.resolvedDependencies,
+      resolvers: this.resolvers,
+    };
   }
 
   /**
@@ -73,14 +119,11 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * @param diConfigurationFactory
    */
   public extend<
-    Extension extends ResolvedDependencies,
-    FactoryFunction extends (
-      container: IDIContainer<ContainerResolvers>,
-    ) => IDIContainer<ContainerResolvers & Extension>,
-  >(
-    diConfigurationFactory: FactoryFunction,
-  ): IDIContainer<ContainerResolvers & Extension> {
-    return diConfigurationFactory(this.toContainer());
+    E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer,
+  >(diConfigurationFactory: E): ReturnType<E> {
+    return diConfigurationFactory(
+      this as unknown as IDIContainer<ContainerResolvers>,
+    ) as ReturnType<E>;
   }
 
   /**
@@ -114,6 +157,41 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   }
 
   /**
+   * Merges two containers. It will return a new container with merged resolvers. Resolved dependencies will be merged as well.
+   * @param otherContainer
+   */
+  public merge<OtherContainerResolvers extends ResolvedDependencies>(
+    otherContainer: DIContainer<OtherContainerResolvers>,
+  ): IDIContainer<ContainerResolvers & OtherContainerResolvers> {
+    const {
+      resolvedDependencies: newresolvedDependencies,
+      resolvers: newResolvers,
+    } = otherContainer.export();
+
+    const resolvers = {
+      ...this.resolvers,
+      ...newResolvers,
+    };
+
+    const resolvedDependencies = {
+      ...this.resolvedDependencies,
+      ...newresolvedDependencies,
+    };
+
+    this.resolvers = resolvers;
+    this.resolvedDependencies = {
+      ...resolvedDependencies,
+    };
+    for (const property of Object.keys(this.resolvers)) {
+      this.addContainerProperty(property);
+    }
+
+    return this as unknown as IDIContainer<
+      ContainerResolvers & OtherContainerResolvers
+    >;
+  }
+
+  /**
    * Updates existing dependency resolver. If dependency with given name does not exist it will throw an error.
    * In most cases you don't need to override dependencies and should use add method instead. This approach will
    * help you to avoid overriding dependencies by mistake.
@@ -143,7 +221,13 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       throw new DependencyIsMissingError(name);
     }
 
-    return this.setValue(name, resolver) as IDIContainer<
+    this.setValue(name, resolver);
+    if (Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name)) {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete this.resolvedDependencies[name];
+    }
+
+    return this as unknown as IDIContainer<
       {
         [n in N]: ReturnType<R>;
       } & {
@@ -153,12 +237,30 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       this;
   }
 
-  private setValue(name: string, resolver: Factory<ContainerResolvers>) {
-    this.resolvers = {
-      ...this.resolvers,
-      [name]: resolver,
-    };
+  protected setResolvers<CR extends ResolvedDependencies>(
+    resolvers: Resolvers<CR>,
+    resolvedDependencies: {
+      [name in keyof CR]: ResolvedDependencyValue;
+    },
+  ) {
+    if (Object.keys(this.resolvers).length !== 0) {
+      throw new Error(
+        'Cannot set resolved dependencies after resolvers are defined',
+      );
+    }
 
+    // @ts-expect-error - we are setting resolvers
+    this.resolvers = resolvers;
+    // @ts-expect-error - we are setting resolvedDependencies
+    this.resolvedDependencies = {
+      ...resolvedDependencies,
+    };
+    for (const property of Object.keys(this.resolvers)) {
+      this.addContainerProperty(property);
+    }
+  }
+
+  private addContainerProperty(name: string) {
     // eslint-disable-next-line unicorn/no-this-assignment, @typescript-eslint/no-this-alias, consistent-this
     let updatedObject = this;
     if (!Object.prototype.hasOwnProperty.call(this, name)) {
@@ -169,22 +271,32 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       });
     }
 
-    this.context = new Proxy(this, {
-      get(target, property) {
-        const propertyName =
-          property.toString() as keyof DIContainer<ContainerResolvers>;
-        if (containerMethods.includes(propertyName)) {
-          throw new IncorrectInvocationError();
-        }
-
-        return target[propertyName];
-      },
-    }) as unknown as ContainerResolvers;
-
     return updatedObject;
   }
 
-  private toContainer(): IDIContainer<ContainerResolvers> {
-    return this as unknown as IDIContainer<ContainerResolvers>;
+  /**
+   * Sets value to the container
+   */
+  private setValue(name: string, resolver: Factory<ContainerResolvers>): void {
+    this.resolvers = {
+      ...this.resolvers,
+      [name]: resolver,
+    };
+
+    this.addContainerProperty(name);
+  }
+}
+
+class ClonedDiContainer<
+  ContainerResolvers extends ResolvedDependencies = {},
+> extends DIContainer<ContainerResolvers> {
+  public constructor(
+    resolvers: Resolvers<ContainerResolvers>,
+    resolvedDependencies: {
+      [name in keyof ContainerResolvers]: ResolvedDependencyValue;
+    },
+  ) {
+    super();
+    this.setResolvers(resolvers, resolvedDependencies);
   }
 }
