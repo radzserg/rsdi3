@@ -2,7 +2,6 @@ import {
   DenyOverrideDependencyError,
   DependencyIsMissingError,
   ForbiddenNameError,
-  IncorrectInvocationError,
 } from './errors.js';
 import {
   type DenyInputKeys,
@@ -14,7 +13,16 @@ import {
   type StringLiteral,
 } from './types.js';
 
-const containerMethods = ['add', 'get', 'extend', 'update', 'merge', 'clone'];
+const containerMethods = [
+  'add',
+  'get',
+  'extend',
+  'update',
+  'merge',
+  'clone',
+  'hasResolvedDependency',
+  'has',
+];
 
 /**
  * Dependency injection container
@@ -33,9 +41,6 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       get(target, property) {
         const propertyName =
           property.toString() as keyof DIContainer<ContainerResolvers>;
-        if (containerMethods.includes(propertyName)) {
-          throw new IncorrectInvocationError();
-        }
 
         return target[propertyName];
       },
@@ -154,6 +159,13 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    */
   public has(name: string): boolean {
     return Object.prototype.hasOwnProperty.call(this.resolvers, name);
+  }
+
+  public hasResolvedDependency(name: string): boolean {
+    return Object.prototype.hasOwnProperty.call(
+      this.resolvedDependencies,
+      name,
+    );
   }
 
   /**

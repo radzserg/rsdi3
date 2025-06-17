@@ -23,6 +23,7 @@ export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
       dependencyName: Name,
     ) => ContainerResolvers[Name];
     has: (name: string) => boolean;
+    hasResolvedDependency: (name: string) => boolean;
     merge: <OtherContainerResolvers extends ResolvedDependencies>(
       container:
         | DIContainer<OtherContainerResolvers>

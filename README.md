@@ -8,10 +8,7 @@ Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI co
 - [Architecture](#architecture)
 - [How to use](#how-to-use)
 - [Strict types](#strict-types)
-- [Best Practices](#best-practices)
-- Wiki
-  - [Async factory resolver](./docs/async_factory_resolver.md)
-  - [DI Container vs Context](./docs/context_vs_container.md)
+- [Advanced Usage](#advanced-usage)
 
 ## Motivation
 
@@ -189,58 +186,70 @@ app.listen(8000);
 
 This gives you autocomplete and safety without decorators or metadata hacks.
 
-## Best practices
+## Advanced Usage
 
-As your application grows, it’s a good idea to split your DI container setup into multiple files. This helps keep 
-your code organized and easier to maintain.
+As your application grows, it’s a good idea to split your DI container setup into smaller, focused modules. This keeps 
+your codebase easier to navigate and maintain.
 
-For example, you might have a main diContainer.ts file that sets up the core container, and then separate files like 
-controllers.ts, validators.ts, or dataAccess.ts that each register a group of related dependencies.
+A common pattern is to keep a main `diContainer.ts` file that configures the base container and delegate domain-specific 
+dependencies to separate files like `dataAccess.ts`, `validators.ts`, or `controllers.ts`.
 
-This modular approach makes it easier to manage changes, test in isolation, and understand how dependencies are wired 
-across different parts of your app.
+This modular structure improves testability, readability, and clarity on how dependencies are wired across your app.
 
-```typescript
+---
 
+### Extend
+
+You can extend a container with more dependencies using `.extend()`. This is ideal for building up your container in logical steps.
+
+```ts
 // diContainer.ts
 
 export const configureDI = async () => {
   return (await buildDatabaseDependencies())
     .extend(addDataAccessDependencies)
     .extend(addValidators);
-}
+};
+```
 
+```ts
 // addDataAccessDependencies.ts
+
 export type DIWithPool = Awaited<ReturnType<typeof buildDatabaseDependencies>>;
+
 export const addDataAccessDependencies = async () => {
   const pool = await createDatabasePool();
   const longRunningPool = await createLongRunningDatabasePool();
+
   return new DIContainer()
     .add("databasePool", () => pool)
     .add("longRunningDatabasePool", () => longRunningPool);
 };
+```
 
-//  addValidators.ts
+```ts
+// addValidators.ts
+
 export type DIWithValidators = ReturnType<typeof addValidators>;
+
 export const addValidators = (container: DIWithPool) => {
   return container
-    .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
-    .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
+    .add("myValidatorA", ({ a, b, c }) => new MyValidatorA(a, b, c))
+    .add("myValidatorB", ({ a, b, c }) => new MyValidatorB(a, b, c));
 };
 ```
 
+---
 
+### Merge
 
-### Merging Containers
+You can merge two containers to combine their resolvers and resolved values.
 
-You can merge resolvers and resolved dependencies from two containers into one. This is useful for combining 
-dependencies from different parts of your  application — for example, merging core services with feature-specific dependencies.
+- Dependencies from both containers are preserved.
+- If both define the same key, the merging container’s value takes precedence.
+- Already resolved values are reused — not re-created.
 
-- Merging container will add resolvers and resolved dependencies from the other container.
-- If both containers define the same dependency, the merging container’s value takes priority.
-- Resolved dependencies remain shared — they are not re-created.
-
-```typescript
+```ts
 const containerA = new DIContainer()
   .add("a", () => "1")
   .add("bar", () => new Bar());
@@ -257,13 +266,15 @@ console.log(finalContainer.bar instanceof Bar); // true
 console.log(finalContainer.buzz.name); // "buzz"
 ```
 
-### Cloning Container
+---
 
-You can clone a container to create a new container with the same resolvers and resolved dependencies. 
-This is useful when you want to create a new bounded context with the same dependencies as the original container.
-Already resolved dependencies will be shared between the cloned container and the original container.
+### Clone
 
-```typescript
+Use `.clone()` to create a new container that shares resolvers and already resolved values with the original.
+
+This is useful for creating isolated execution contexts while preserving the base setup.
+
+```ts
 const containerA = new DIContainer()
   .add("a", () => "1")
   .add("bar", () => new Bar())

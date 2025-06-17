@@ -2,7 +2,7 @@ import { DIContainer } from '../DIContainer.js';
 import {
   DenyOverrideDependencyError,
   DependencyIsMissingError,
-  IncorrectInvocationError,
+  ForbiddenNameError,
 } from '../errors.js';
 import { Bar, Foo } from './__helpers__/fakeClasses.js';
 import { describe, expect, test } from 'vitest';
@@ -87,15 +87,9 @@ describe('DIContainer typescript type resolution', () => {
     expect(foo2.name).toEqual('name2');
   });
 
-  test('cannot not add inside factory', () => {
-    const container = new DIContainer().add('foo', (diContainer) => {
-      // @ts-expect-error - expected type error
-      diContainer.add('c', () => '2');
-      return 123;
-    });
-
+  test('cannot not add method "add" to the container', () => {
     expect(() => {
-      container.get('foo');
-    }).toThrow(IncorrectInvocationError);
+      new DIContainer().add('add', () => 213);
+    }).toThrow(ForbiddenNameError);
   });
 });
