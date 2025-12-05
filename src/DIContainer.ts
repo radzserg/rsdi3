@@ -13,7 +13,7 @@ import {
   type StringLiteral,
 } from './types.js';
 
-const containerMethods = [
+const containerMethods = new Set([
   'add',
   'get',
   'extend',
@@ -22,7 +22,7 @@ const containerMethods = [
   'clone',
   'hasResolvedDependency',
   'has',
-];
+]);
 
 /**
  * Dependency injection container
@@ -57,7 +57,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
     resolver: R,
   ): IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> {
-    if (containerMethods.includes(name)) {
+    if (containerMethods.has(name)) {
       throw new ForbiddenNameError(name);
     }
 
@@ -225,7 +225,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
     }
   > {
-    if (containerMethods.includes(name)) {
+    if (containerMethods.has(name)) {
       throw new ForbiddenNameError(name);
     }
 
