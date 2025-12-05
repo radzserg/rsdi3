@@ -1,16 +1,17 @@
-import auto from 'eslint-config-canonical/auto';
-import tseslint, { ConfigArray } from 'typescript-eslint';
+import auto from 'eslint-config-canonical/auto'
+import tseslint, { ConfigArray } from 'typescript-eslint'
 
-const config: ConfigArray = tseslint.config({
+const config: ConfigArray = tseslint.config(
+  {
     ignores: [
       'dist/*',
       'node_modules/*',
       'package.json',
       'pnpm-lock.yaml',
-      'eslint.config.ts'
+      'eslint.config.ts',
     ],
   },
-  auto
-);
+  auto,
+)
 
-export default config;
+export default config

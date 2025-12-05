@@ -2,7 +2,7 @@ import {
   DenyOverrideDependencyError,
   DependencyIsMissingError,
   ForbiddenNameError,
-} from './errors.js';
+} from './errors.js'
 import {
   type DenyInputKeys,
   type Factory,
@@ -11,7 +11,7 @@ import {
   type ResolvedDependencyValue,
   type Resolvers,
   type StringLiteral,
-} from './types.js';
+} from './types.js'
 
 const containerMethods = new Set([
   'add',
@@ -22,29 +22,29 @@ const containerMethods = new Set([
   'clone',
   'hasResolvedDependency',
   'has',
-]);
+])
 
 /**
  * Dependency injection container
  */
 export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   protected resolvedDependencies: {
-    [name in keyof ContainerResolvers]?: ResolvedDependencyValue;
-  } = {};
+    [name in keyof ContainerResolvers]?: ResolvedDependencyValue
+  } = {}
 
-  protected resolvers: Resolvers<ContainerResolvers> = {};
+  protected resolvers: Resolvers<ContainerResolvers> = {}
 
-  private readonly context: ContainerResolvers = {} as ContainerResolvers;
+  private readonly context: ContainerResolvers = {} as ContainerResolvers
 
   public constructor() {
     this.context = new Proxy(this, {
       get(target, property) {
         const propertyName =
-          property.toString() as keyof DIContainer<ContainerResolvers>;
+          property.toString() as keyof DIContainer<ContainerResolvers>
 
-        return target[propertyName];
+        return target[propertyName]
       },
-    }) as unknown as ContainerResolvers;
+    }) as unknown as ContainerResolvers
   }
 
   /**
@@ -58,19 +58,19 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     resolver: R,
   ): IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> {
     if (containerMethods.has(name)) {
-      throw new ForbiddenNameError(name);
+      throw new ForbiddenNameError(name)
     }
 
     if (this.has(name)) {
-      throw new DenyOverrideDependencyError(name);
+      throw new DenyOverrideDependencyError(name)
     }
 
-    this.setValue(name, resolver);
+    this.setValue(name, resolver)
 
     return this as IDIContainer<
       ContainerResolvers & { [n in N]: ReturnType<R> }
     > &
-      this;
+      this
   }
 
   /**
@@ -86,21 +86,21 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     const {
       resolvedDependencies: newresolvedDependencies,
       resolvers: newResolvers,
-    } = this.export();
+    } = this.export()
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const newContainer = new ClonedDiContainer(
       newResolvers,
       newresolvedDependencies,
-    );
+    )
 
-    return newContainer as DIContainer<ContainerResolvers>;
+    return newContainer as DIContainer<ContainerResolvers>
   }
 
   public export(): ResolvedDependencies {
     return {
       resolvedDependencies: this.resolvedDependencies,
       resolvers: this.resolvers,
-    };
+    }
   }
 
   /**
@@ -128,7 +128,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   >(diConfigurationFactory: E): ReturnType<E> {
     return diConfigurationFactory(
       this as unknown as IDIContainer<ContainerResolvers>,
-    ) as ReturnType<E>;
+    ) as ReturnType<E>
   }
 
   /**
@@ -140,17 +140,17 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     dependencyName: Name,
   ): ContainerResolvers[Name] {
     if (this.resolvedDependencies[dependencyName] !== undefined) {
-      return this.resolvedDependencies[dependencyName];
+      return this.resolvedDependencies[dependencyName]
     }
 
-    const resolver = this.resolvers[dependencyName];
+    const resolver = this.resolvers[dependencyName]
     if (!resolver) {
-      throw new DependencyIsMissingError(dependencyName as string);
+      throw new DependencyIsMissingError(dependencyName as string)
     }
 
-    this.resolvedDependencies[dependencyName] = resolver(this.context);
+    this.resolvedDependencies[dependencyName] = resolver(this.context)
 
-    return this.resolvedDependencies[dependencyName];
+    return this.resolvedDependencies[dependencyName]
   }
 
   /**
@@ -158,14 +158,11 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * @param name
    */
   public has(name: string): boolean {
-    return Object.prototype.hasOwnProperty.call(this.resolvers, name);
+    return Object.prototype.hasOwnProperty.call(this.resolvers, name)
   }
 
   public hasResolvedDependency(name: string): boolean {
-    return Object.prototype.hasOwnProperty.call(
-      this.resolvedDependencies,
-      name,
-    );
+    return Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name)
   }
 
   /**
@@ -178,29 +175,29 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     const {
       resolvedDependencies: newresolvedDependencies,
       resolvers: newResolvers,
-    } = otherContainer.export();
+    } = otherContainer.export()
 
     const resolvers = {
       ...this.resolvers,
       ...newResolvers,
-    };
+    }
 
     const resolvedDependencies = {
       ...this.resolvedDependencies,
       ...newresolvedDependencies,
-    };
+    }
 
-    this.resolvers = resolvers;
+    this.resolvers = resolvers
     this.resolvedDependencies = {
       ...resolvedDependencies,
-    };
+    }
     for (const property of Object.keys(this.resolvers)) {
-      this.addContainerProperty(property);
+      this.addContainerProperty(property)
     }
 
     return this as unknown as IDIContainer<
       ContainerResolvers & OtherContainerResolvers
-    >;
+    >
   }
 
   /**
@@ -220,70 +217,70 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     resolver: R,
   ): IDIContainer<
     {
-      [n in N]: ReturnType<R>;
+      [n in N]: ReturnType<R>
     } & {
-      [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
+      [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P]
     }
   > {
     if (containerMethods.has(name)) {
-      throw new ForbiddenNameError(name);
+      throw new ForbiddenNameError(name)
     }
 
     if (!this.has(name)) {
-      throw new DependencyIsMissingError(name);
+      throw new DependencyIsMissingError(name)
     }
 
-    this.setValue(name, resolver);
+    this.setValue(name, resolver)
     if (Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name)) {
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete this.resolvedDependencies[name];
+      delete this.resolvedDependencies[name]
     }
 
     return this as unknown as IDIContainer<
       {
-        [n in N]: ReturnType<R>;
+        [n in N]: ReturnType<R>
       } & {
-        [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
+        [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P]
       }
     > &
-      this;
+      this
   }
 
   protected setResolvers<CR extends ResolvedDependencies>(
     resolvers: Resolvers<CR>,
     resolvedDependencies: {
-      [name in keyof CR]: ResolvedDependencyValue;
+      [name in keyof CR]: ResolvedDependencyValue
     },
   ) {
     if (Object.keys(this.resolvers).length !== 0) {
       throw new Error(
         'Cannot set resolved dependencies after resolvers are defined',
-      );
+      )
     }
 
     // @ts-expect-error - we are setting resolvers
-    this.resolvers = resolvers;
+    this.resolvers = resolvers
     // @ts-expect-error - we are setting resolvedDependencies
     this.resolvedDependencies = {
       ...resolvedDependencies,
-    };
+    }
     for (const property of Object.keys(this.resolvers)) {
-      this.addContainerProperty(property);
+      this.addContainerProperty(property)
     }
   }
 
   private addContainerProperty(name: string) {
     // eslint-disable-next-line unicorn/no-this-assignment, @typescript-eslint/no-this-alias, consistent-this
-    let updatedObject = this;
+    let updatedObject = this
     if (!Object.prototype.hasOwnProperty.call(this, name)) {
       updatedObject = Object.defineProperty(this, name, {
         get() {
-          return this.get(name);
+          return this.get(name)
         },
-      });
+      })
     }
 
-    return updatedObject;
+    return updatedObject
   }
 
   /**
@@ -293,9 +290,9 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     this.resolvers = {
       ...this.resolvers,
       [name]: resolver,
-    };
+    }
 
-    this.addContainerProperty(name);
+    this.addContainerProperty(name)
   }
 }
 
@@ -305,10 +302,10 @@ class ClonedDiContainer<
   public constructor(
     resolvers: Resolvers<ContainerResolvers>,
     resolvedDependencies: {
-      [name in keyof ContainerResolvers]: ResolvedDependencyValue;
+      [name in keyof ContainerResolvers]: ResolvedDependencyValue
     },
   ) {
-    super();
-    this.setResolvers(resolvers, resolvedDependencies);
+    super()
+    this.setResolvers(resolvers, resolvedDependencies)
   }
 }

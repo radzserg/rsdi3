@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest --run && tsd",
-    "prepare": "husky"
+    "prepare": "husky",
+    "format": "prettier --write ."
   },
   "tsd": {
     "directory": "src/__tests__/__typetests__"
@@ -41,6 +42,7 @@
     "globals": "^16.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "prettier": "^3.7.4",
     "tsd": "^0.33.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1",
@@ -52,5 +54,9 @@
       "esbuild",
       "unrs-resolver"
     ]
+  },
+  "prettier": {
+    "singleQuote": true,
+    "semi": false
   }
 }

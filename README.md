@@ -12,17 +12,18 @@ Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI co
 
 ## Motivation
 
-Most DI libraries rely on reflect-metadata and decorators to auto-wire dependencies. But this tightly couples 
+Most DI libraries rely on reflect-metadata and decorators to auto-wire dependencies. But this tightly couples
 your business logic to a framework — and adds complexity:
 
 ```typescript
 @injectable()
 class Foo {
-  constructor(@inject("Database") private database?: Database) {}
+  constructor(@inject('Database') private database?: Database) {}
 }
-// Notice how in order to allow the use of the empty constructor new Foo(), 
+// Notice how in order to allow the use of the empty constructor new Foo(),
 // we need to make the parameters optional, e.g. database?: Database.
 ```
+
 Why should your core logic even know it’s injectable?
 
 RSDI avoids this by using explicit factory functions — keeping your code clean, framework-agnostic, and easy to test.
@@ -54,12 +55,13 @@ Use `RSDI` when your app grows in complexity:
 `RSDI` works best when you organize your app as a dependency tree.
 
 A typical backend app might have:
+
 - Controllers (REST or GraphQL)
 - Domain managers (use-cases, handlers)
 - Repositories (DB access)
 - Infrastructure (DB pools, loggers)
 
-![architecture](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_architecture.jpg "RSDI Architecture")
+![architecture](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_architecture.jpg 'RSDI Architecture')
 
 Set up your DI container at the app entry point — from there, all other parts can pull in what they need.
 
@@ -69,11 +71,11 @@ Set up your DI container at the app entry point — from there, all other parts 
 
 ```typescript
 const container = new DIContainer()
-    .add("a", () => "name1")
-    .add("bar", () => new Bar())
-    .add("foo", ({ a, bar}) => new Foo(a, bar));
+  .add('a', () => 'name1')
+  .add('bar', () => new Bar())
+  .add('foo', ({ a, bar }) => new Foo(a, bar))
 
-const { foo } = container; // alternatively  container.get("foo");
+const { foo } = container // alternatively  container.get("foo");
 ```
 
 ### Real-World Example
@@ -87,14 +89,14 @@ export function UserController(
 ) {
   return {
     async create(req: Request, res: Response) {
-      const user = await userRegistrator.register(req.body);
-      res.send(user);
+      const user = await userRegistrator.register(req.body)
+      res.send(user)
     },
     async list(req: Request) {
-      const users = await userRepository.findAll(req.body);
-      res.send(users);
+      const users = await userRepository.findAll(req.body)
+      res.send(users)
     },
-  };
+  }
 }
 
 export class UserRegistrator {
@@ -102,49 +104,52 @@ export class UserRegistrator {
 
   public async register(userData: SignupData) {
     // validate and send sign up email
-    return this.userRepository.saveNewUser(userData);
+    return this.userRepository.saveNewUser(userData)
   }
 }
 
 export function MyDbProviderUserRepository(db: DbConnection): UserRepository {
   return {
     async saveNewUser(userAccountData: SignupData): Promise<void> {
-      await this.db("insert").insert(userAccountData);
+      await this.db('insert').insert(userAccountData)
     },
-  };
+  }
 }
 
 export function buildDbConnection(): DbConnection {
   return connectToDb({
     /* db credentials */
-  });
+  })
 }
 ```
 
-Now let’s configure the dependency injection container. Dependencies are only created when they’re actually needed. 
+Now let’s configure the dependency injection container. Dependencies are only created when they’re actually needed.
 Your `configureDI` function will declare and connect everything in one place.
 
 ```typescript
-import { DIContainer } from "rsdi";
+import { DIContainer } from 'rsdi'
 
-export type AppDIContainer = ReturnType<typeof configureDI>;
+export type AppDIContainer = ReturnType<typeof configureDI>
 
 export default function configureDI() {
   return new DIContainer()
-    .add("dbConnection", buildDbConnection())
-    .add("userRepository", ({ dbConnection }) =>
+    .add('dbConnection', buildDbConnection())
+    .add('userRepository', ({ dbConnection }) =>
       MyDbProviderUserRepository(dbConnection),
     )
-    .add("userRegistrator", ({ userRepository }) => new UserRegistrator(userRepository))
-    .add("userController", ({ userRepository, userRegistrator}) =>
+    .add(
+      'userRegistrator',
+      ({ userRepository }) => new UserRegistrator(userRepository),
+    )
+    .add('userController', ({ userRepository, userRegistrator }) =>
       UserController(userRepository, userRegistrator),
-    );
+    )
 }
 ```
 
-When a resolver runs for the first time, its result is cached and reused for future calls. 
+When a resolver runs for the first time, its result is cached and reused for future calls.
 
-By default, you should always use .add() to register dependencies. If you need to replace an existing one — usually 
+By default, you should always use .add() to register dependencies. If you need to replace an existing one — usually
 in tests — you can use .update() instead. This avoids accidental overwrites and keeps your setup predictable.
 
 Let's map our web application routes to configured controllers
@@ -155,11 +160,8 @@ export default function configureRouter(
   app: core.Express,
   diContainer: AppDIContainer,
 ) {
-  const { usersController } = diContainer;
-  app
-    .route("/users")
-    .get(usersController.list)
-    .post(usersController.create);
+  const { usersController } = diContainer
+  app.route('/users').get(usersController.list).post(usersController.create)
 }
 ```
 
@@ -167,31 +169,30 @@ Add `configureDI()` in your app’s entry point:
 
 ```typescript
 // express.ts
-const app = express();
+const app = express()
 
-const diContainer = configureDI();
-configureRouter(app, diContainer);
+const diContainer = configureDI()
+configureRouter(app, diContainer)
 
-app.listen(8000);
+app.listen(8000)
 ```
- 
-🔗 Full example: [Express + RSDI](https://radzserg.medium.com/dependency-injection-in-express-application-dd85295694ab)
 
+🔗 Full example: [Express + RSDI](https://radzserg.medium.com/dependency-injection-in-express-application-dd85295694ab)
 
 ## Strict types
 
 `RSDI` uses TypeScript’s type system to validate dependency trees at compile time, not runtime.
 
-![strict type](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_types.png "RSDI types")
+![strict type](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_types.png 'RSDI types')
 
 This gives you autocomplete and safety without decorators or metadata hacks.
 
 ## Advanced Usage
 
-As your application grows, it’s a good idea to split your DI container setup into smaller, focused modules. This keeps 
+As your application grows, it’s a good idea to split your DI container setup into smaller, focused modules. This keeps
 your codebase easier to navigate and maintain.
 
-A common pattern is to keep a main `diContainer.ts` file that configures the base container and delegate domain-specific 
+A common pattern is to keep a main `diContainer.ts` file that configures the base container and delegate domain-specific
 dependencies to separate files like `dataAccess.ts`, `validators.ts`, or `controllers.ts`.
 
 This modular structure improves testability, readability, and clarity on how dependencies are wired across your app.
@@ -208,35 +209,35 @@ You can extend a container with more dependencies using `.extend()`. This is ide
 export const configureDI = async () => {
   return (await buildDatabaseDependencies())
     .extend(addDataAccessDependencies)
-    .extend(addValidators);
-};
+    .extend(addValidators)
+}
 ```
 
 ```ts
 // addDataAccessDependencies.ts
 
-export type DIWithPool = Awaited<ReturnType<typeof buildDatabaseDependencies>>;
+export type DIWithPool = Awaited<ReturnType<typeof buildDatabaseDependencies>>
 
 export const addDataAccessDependencies = async () => {
-  const pool = await createDatabasePool();
-  const longRunningPool = await createLongRunningDatabasePool();
+  const pool = await createDatabasePool()
+  const longRunningPool = await createLongRunningDatabasePool()
 
   return new DIContainer()
-    .add("databasePool", () => pool)
-    .add("longRunningDatabasePool", () => longRunningPool);
-};
+    .add('databasePool', () => pool)
+    .add('longRunningDatabasePool', () => longRunningPool)
+}
 ```
 
 ```ts
 // addValidators.ts
 
-export type DIWithValidators = ReturnType<typeof addValidators>;
+export type DIWithValidators = ReturnType<typeof addValidators>
 
 export const addValidators = (container: DIWithPool) => {
   return container
-    .add("myValidatorA", ({ a, b, c }) => new MyValidatorA(a, b, c))
-    .add("myValidatorB", ({ a, b, c }) => new MyValidatorB(a, b, c));
-};
+    .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
+    .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c))
+}
 ```
 
 ---
@@ -251,19 +252,19 @@ You can merge two containers to combine their resolvers and resolved values.
 
 ```ts
 const containerA = new DIContainer()
-  .add("a", () => "1")
-  .add("bar", () => new Bar());
+  .add('a', () => '1')
+  .add('bar', () => new Bar())
 
 const containerB = new DIContainer()
-  .add("b", () => "b")
-  .add("buzz", () => new Buzz("buzz"));
+  .add('b', () => 'b')
+  .add('buzz', () => new Buzz('buzz'))
 
-const finalContainer = containerA.merge(containerB);
+const finalContainer = containerA.merge(containerB)
 
-console.log(finalContainer.a); // "1"
-console.log(finalContainer.b); // "b"
-console.log(finalContainer.bar instanceof Bar); // true
-console.log(finalContainer.buzz.name); // "buzz"
+console.log(finalContainer.a) // "1"
+console.log(finalContainer.b) // "b"
+console.log(finalContainer.bar instanceof Bar) // true
+console.log(finalContainer.buzz.name) // "buzz"
 ```
 
 ---
@@ -276,13 +277,13 @@ This is useful for creating isolated execution contexts while preserving the bas
 
 ```ts
 const containerA = new DIContainer()
-  .add("a", () => "1")
-  .add("bar", () => new Bar())
-  .add("buzz", () => new Buzz("buzz"));
+  .add('a', () => '1')
+  .add('bar', () => new Bar())
+  .add('buzz', () => new Buzz('buzz'))
 
-const containerB = containerA.clone();
+const containerB = containerA.clone()
 
-console.log(containerB.a); // "1"
-console.log(containerB.bar instanceof Bar); // true
-console.log(containerB.buzz.name); // "buzz"
+console.log(containerB.a) // "1"
+console.log(containerB.bar instanceof Bar) // true
+console.log(containerB.buzz.name) // "buzz"
 ```

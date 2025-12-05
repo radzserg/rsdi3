@@ -13,23 +13,26 @@ class UserRepository {
   public constructor(private readonly dbConnection: any) {} // some ORM that requires opened connection
 
   async findUser() {
-    return await this.dbConnection.find(/*...params...*/);
+    return await this.dbConnection.find(/*...params...*/)
   }
 }
 
 // configureDI.ts
-import { createConnections } from "my-orm-library";
-import { DIContainer } from "rsdi";
+import { createConnections } from 'my-orm-library'
+import { DIContainer } from 'rsdi'
 
 async function configureDI() {
   // initialize async factories before DI container initialisation
-  const dbConnection = await createConnections();
+  const dbConnection = await createConnections()
 
   return new DIContainer()
-    .add("dbConnection", dbConnection)
-    .add("userRepository", ({ dbConnection }) => new UserRepository( dbConnection ));
+    .add('dbConnection', dbConnection)
+    .add(
+      'userRepository',
+      ({ dbConnection }) => new UserRepository(dbConnection),
+    )
 }
 
 // main.ts
-const { userRepository } = diContainer;
+const { userRepository } = diContainer
 ```
