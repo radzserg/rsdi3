@@ -15,19 +15,21 @@ import {
 
 const containerMethods = new Set([
   'add',
-  'get',
-  'extend',
-  'update',
-  'merge',
   'clone',
-  'hasResolvedDependency',
+  'extend',
+  'get',
   'has',
+  'hasResolvedDependency',
+  'merge',
+  'update',
 ])
 
 /**
  * Dependency injection container
  */
-export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
+export class DIContainer<
+  ContainerResolvers extends ResolvedDependencies = object,
+> {
   protected resolvedDependencies: {
     [name in keyof ContainerResolvers]?: ResolvedDependencyValue
   } = {}
@@ -87,7 +89,6 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       resolvedDependencies: newresolvedDependencies,
       resolvers: newResolvers,
     } = this.export()
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const newContainer = new ClonedDiContainer(
       newResolvers,
       newresolvedDependencies,
@@ -232,7 +233,6 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 
     this.setValue(name, resolver)
     if (Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name)) {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete this.resolvedDependencies[name]
     }
 
@@ -270,7 +270,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   }
 
   private addContainerProperty(name: string) {
-    // eslint-disable-next-line unicorn/no-this-assignment, @typescript-eslint/no-this-alias, consistent-this
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     let updatedObject = this
     if (!Object.prototype.hasOwnProperty.call(this, name)) {
       updatedObject = Object.defineProperty(this, name, {
@@ -297,7 +297,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 }
 
 class ClonedDiContainer<
-  ContainerResolvers extends ResolvedDependencies = {},
+  ContainerResolvers extends ResolvedDependencies = object,
 > extends DIContainer<ContainerResolvers> {
   public constructor(
     resolvers: Resolvers<ContainerResolvers>,

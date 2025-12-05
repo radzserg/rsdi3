@@ -38,7 +38,6 @@
     "@eslint/js": "^9.39.1",
     "@typescript-eslint/utils": "^8.48.1",
     "eslint": "^9.39.1",
-    "eslint-config-canonical": "^47.3.6",
     "globals": "^16.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",

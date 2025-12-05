@@ -7,40 +7,41 @@ export type Factory<ContainerResolvers extends ResolvedDependencies> = (
   resolvers: ContainerResolvers,
 ) => ResolvedDependencyValue
 
-export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
-  ContainerResolvers & {
-    add: <N extends string, R extends Factory<ContainerResolvers>>(
-      name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
-      resolver: R,
-    ) => IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }>
-    clone: () => IDIContainer<ContainerResolvers>
-    extend: <
-      E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer,
-    >(
-      f: E,
-    ) => ReturnType<E>
-    get: <Name extends keyof ContainerResolvers>(
-      dependencyName: Name,
-    ) => ContainerResolvers[Name]
-    has: (name: string) => boolean
-    hasResolvedDependency: (name: string) => boolean
-    merge: <OtherContainerResolvers extends ResolvedDependencies>(
-      container:
-        | DIContainer<OtherContainerResolvers>
-        | IDIContainer<OtherContainerResolvers>,
-    ) => IDIContainer<ContainerResolvers & OtherContainerResolvers>
-    update: <
-      N extends keyof ContainerResolvers,
-      R extends Factory<ContainerResolvers>,
-    >(
-      name: StringLiteral<N>,
-      resolver: R,
-    ) => IDIContainer<
-      {
-        [n in N]: ReturnType<R>
-      } & { [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P] }
-    >
-  }
+export type IDIContainer<
+  ContainerResolvers extends ResolvedDependencies = object,
+> = ContainerResolvers & {
+  add: <N extends string, R extends Factory<ContainerResolvers>>(
+    name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
+    resolver: R,
+  ) => IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }>
+  clone: () => IDIContainer<ContainerResolvers>
+  extend: <
+    E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer,
+  >(
+    f: E,
+  ) => ReturnType<E>
+  get: <Name extends keyof ContainerResolvers>(
+    dependencyName: Name,
+  ) => ContainerResolvers[Name]
+  has: (name: string) => boolean
+  hasResolvedDependency: (name: string) => boolean
+  merge: <OtherContainerResolvers extends ResolvedDependencies>(
+    container:
+      | DIContainer<OtherContainerResolvers>
+      | IDIContainer<OtherContainerResolvers>,
+  ) => IDIContainer<ContainerResolvers & OtherContainerResolvers>
+  update: <
+    N extends keyof ContainerResolvers,
+    R extends Factory<ContainerResolvers>,
+  >(
+    name: StringLiteral<N>,
+    resolver: R,
+  ) => IDIContainer<
+    {
+      [n in N]: ReturnType<R>
+    } & { [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P] }
+  >
+}
 
 export type ResolvedDependencies = {
   [k: string]: ResolvedDependencyValue

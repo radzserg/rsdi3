@@ -1,4 +1,3 @@
-// eslint-disable-next-line canonical/filename-match-regex
 import { DIContainer } from '../../DIContainer.js'
 import { Bar, Foo } from '../__helpers__/fakeClasses.js'
 import { expectNotType, expectType } from 'tsd'

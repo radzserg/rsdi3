@@ -34,7 +34,6 @@ describe('DIContainer typescript type resolution', () => {
   })
 
   test('it resolves function', () => {
-    // eslint-disable-next-line unicorn/consistent-function-scoping
     const aConcat = (a: string) => a + 'a'
     const container = new DIContainer()
       .add('a', () => 'hello')

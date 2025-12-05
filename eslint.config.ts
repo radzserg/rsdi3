@@ -1,7 +1,8 @@
-import auto from 'eslint-config-canonical/auto'
-import tseslint, { ConfigArray } from 'typescript-eslint'
+import eslint from '@eslint/js'
+import { defineConfig } from 'eslint/config'
+import tseslint from 'typescript-eslint'
 
-const config: ConfigArray = tseslint.config(
+export default defineConfig(
   {
     ignores: [
       'dist/*',
@@ -11,7 +12,6 @@ const config: ConfigArray = tseslint.config(
       'eslint.config.ts',
     ],
   },
-  auto,
+  eslint.configs.recommended,
+  tseslint.configs.recommended,
 )
-
-export default config
