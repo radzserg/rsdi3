@@ -24,7 +24,8 @@
     ]
   },
   "files": [
-    "dist/**"
+    "dist/**",
+    "!dist/**/__tests__/**"
   ],
   "type": "module",
   "main": "./dist/index.js",
