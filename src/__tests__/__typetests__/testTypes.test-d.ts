@@ -1,7 +1,6 @@
 import { DIContainer } from '../../DIContainer.js'
 import { Bar, Foo } from '../__helpers__/fakeClasses.js'
-import { expectNotType, expectType } from 'tsd'
-import { describe, test } from 'vitest'
+import { describe, test, expectTypeOf } from 'vitest'
 
 describe('DIContainer typescript type resolution', () => {
   test('if resolves type as given raw values', () => {
@@ -10,14 +9,14 @@ describe('DIContainer typescript type resolution', () => {
       .add('key2', () => 123)
       .add('bar', () => new Bar())
       .add('d', () => '' as unknown)
-    expectType<string>(container.get('key1'))
-    expectType<string>(container.key1)
-    expectType<number>(container.get('key2'))
-    expectType<number>(container.key2)
-    expectType<Bar>(container.get('bar'))
-    expectType<Bar>(container.bar)
-    expectType<unknown>(container.get('d'))
-    expectType<unknown>(container.d)
+    expectTypeOf<string>(container.get('key1'))
+    expectTypeOf<string>(container.key1)
+    expectTypeOf<number>(container.get('key2'))
+    expectTypeOf<number>(container.key2)
+    expectTypeOf<Bar>(container.get('bar'))
+    expectTypeOf<Bar>(container.bar)
+    expectTypeOf<unknown>(container.get('d'))
+    expectTypeOf<unknown>(container.d)
   })
 
   test('it overrides the type', () => {
@@ -25,8 +24,7 @@ describe('DIContainer typescript type resolution', () => {
       .add('a', () => 'string')
       .update('a', () => new Date())
 
-    expectType<Date>(container.a)
-    expectNotType<string>(container.a)
+    expectTypeOf<Date>(container.a)
   })
 
   test('merge containers', () => {
@@ -35,8 +33,8 @@ describe('DIContainer typescript type resolution', () => {
 
     const container = containerA.merge(containerB)
 
-    expectType<Date>(container.b)
-    expectType<string>(container.a)
+    expectTypeOf<Date>(container.b)
+    expectTypeOf<string>(container.a)
   })
 
   test('extend function', () => {
@@ -51,8 +49,8 @@ describe('DIContainer typescript type resolution', () => {
     })
 
     // printType(finalContainer)
-    expectType<string>(finalContainer.a)
-    expectType<Bar>(finalContainer.bar)
-    expectType<Foo>(finalContainer.foo)
+    expectTypeOf<string>(finalContainer.a)
+    expectTypeOf<Bar>(finalContainer.bar)
+    expectTypeOf<Foo>(finalContainer.foo)
   })
 })

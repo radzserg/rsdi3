@@ -1,15 +1,12 @@
 {
   "name": "rsdi",
-  "version": "3.0.5-alpha.1",
+  "version": "3.1.0",
   "description": "TypeScript dependency injection container. Strong types without decorators.",
   "scripts": {
     "build": "tsc",
-    "test": "vitest --run && tsd",
+    "test": "vitest --run --typecheck",
     "prepare": "husky",
     "format": "prettier --write ."
-  },
-  "tsd": {
-    "directory": "src/__tests__/__typetests__"
   },
   "keywords": [
     "dependency injection",
@@ -38,11 +35,9 @@
     "@eslint/js": "^9.39.1",
     "@typescript-eslint/utils": "^8.48.1",
     "eslint": "^9.39.1",
-    "globals": "^16.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.7.4",
-    "tsd": "^0.33.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1",
     "vitest": "^4.0.15"
