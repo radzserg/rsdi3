@@ -5,6 +5,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest --run --typecheck",
+    "lint": "eslint && prettier --check . --log-level warn",
     "prepare": "husky",
     "format": "prettier --write ."
   },
