@@ -50,7 +50,7 @@ describe('DIContainer typescript type resolution', () => {
       })
     })
 
-    // printType(finalContainer);
+    // printType(finalContainer)
     expectType<string>(finalContainer.a)
     expectType<Bar>(finalContainer.bar)
     expectType<Foo>(finalContainer.foo)

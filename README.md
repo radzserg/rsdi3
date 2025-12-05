@@ -75,7 +75,7 @@ const container = new DIContainer()
   .add('bar', () => new Bar())
   .add('foo', ({ a, bar }) => new Foo(a, bar))
 
-const { foo } = container // alternatively  container.get("foo");
+const { foo } = container // alternatively  container.get("foo")
 ```
 
 ### Real-World Example

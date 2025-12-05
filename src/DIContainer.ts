@@ -116,12 +116,12 @@ export class DIContainer<
    * const container = new DIContainer()
    * .extend(addValidators)
    *
-   * export type DIWithValidators = ReturnType<typeof addValidators>;
+   * export type DIWithValidators = ReturnType<typeof addValidators>
    * export const addValidators = (container: DIWithDataAccessors) => {
    * return container
    * .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
-   * .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
-   * };
+   * .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c))
+   * }
    * @param diConfigurationFactory
    */
   public extend<
@@ -134,7 +134,7 @@ export class DIContainer<
 
   /**
    * Resolve dependency by name. Alternatively you can use property access to resolve dependency.
-   * For example: const { a, b } = container;
+   * For example: const { a, b } = container
    * @param dependencyName
    */
   public get<Name extends keyof ContainerResolvers>(
