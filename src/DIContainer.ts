@@ -159,11 +159,11 @@ export class DIContainer<
    * @param name
    */
   public has(name: string): boolean {
-    return Object.prototype.hasOwnProperty.call(this.resolvers, name)
+    return Object.hasOwn(this.resolvers, name)
   }
 
   public hasResolvedDependency(name: string): boolean {
-    return Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name)
+    return Object.hasOwn(this.resolvedDependencies, name)
   }
 
   /**
@@ -232,7 +232,7 @@ export class DIContainer<
     }
 
     this.setValue(name, resolver)
-    if (Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name)) {
+    if (Object.hasOwn(this.resolvedDependencies, name)) {
       delete this.resolvedDependencies[name]
     }
 
@@ -272,7 +272,7 @@ export class DIContainer<
   private addContainerProperty(name: string) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     let updatedObject = this
-    if (!Object.prototype.hasOwnProperty.call(this, name)) {
+    if (!Object.hasOwn(this, name)) {
       updatedObject = Object.defineProperty(this, name, {
         get() {
           return this.get(name)
