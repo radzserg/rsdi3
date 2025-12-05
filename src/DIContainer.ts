@@ -50,8 +50,8 @@ export class DIContainer<
   }
 
   /**
-   * Adds new dependency resolver to the container. If dependency with given name already exists it will throw an error.
-   * Use update method instead. It will override existing dependency.
+   * Adds new dependency resolver to the container, throwing an error if it already exists.
+   * To override an existing dependency, use the `update` method instead.
    * @param name
    * @param resolver
    */
@@ -203,10 +203,10 @@ export class DIContainer<
 
   /**
    * Updates existing dependency resolver. If dependency with given name does not exist it will throw an error.
-   * In most cases you don't need to override dependencies and should use add method instead. This approach will
-   * help you to avoid overriding dependencies by mistake.
+   * In most cases you don't need to override dependencies and should use the `add` method instead. This approach will
+   * help you avoid overriding dependencies by mistake.
    *
-   * You may want to override dependency if you want to mock it in tests.
+   * You may want to override a dependency if you want to mock it in tests.
    * @param name
    * @param resolver
    */
