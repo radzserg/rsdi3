@@ -52,7 +52,6 @@
     ]
   },
   "prettier": {
-    "singleQuote": true,
-    "semi": false
+    "singleQuote": true
   }
 }

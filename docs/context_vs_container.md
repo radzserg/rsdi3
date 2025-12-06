@@ -1,13 +1,13 @@
 ## DI Container vs Context
 
 ```typescript
-export const userRegistratorFactory = (repository: UserRepository) => {}
+export const userRegistratorFactory = (repository: UserRepository) => {};
 
 // VS
 
 export const userRegistratorFactory = (context: {
-  repository: UserRepository
-}) => {}
+  repository: UserRepository;
+}) => {};
 ```
 
 At first glance, the difference is not that big. Context works great when the number of dependencies in your application is
@@ -28,21 +28,21 @@ controllers.
 ```typescript
 // router.ts
 const configureRouter = (app: core.Express, diContainer: IDIContainer) => {
-  const { usersController } = diContainer
+  const { usersController } = diContainer;
   app
     .route('/users')
     .get(usersController.actionIndex)
-    .post(usersController.actionCreate)
-}
+    .post(usersController.actionCreate);
+};
 
 // index.ts
-const app = express()
+const app = express();
 
-const diContainer = configureDI()
+const diContainer = configureDI();
 
-configureRouter(app, diContainer)
+configureRouter(app, diContainer);
 
 app.listen(PORT, () => {
-  console.log(`⚡️[server]: Server is running at http://localhost:${PORT}`)
-})
+  console.log(`⚡️[server]: Server is running at http://localhost:${PORT}`);
+});
 ```

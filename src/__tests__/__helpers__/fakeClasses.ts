@@ -5,20 +5,20 @@ export class Buzz {
 }
 
 export class Foo {
-  public bar: Bar
+  public bar: Bar;
 
-  public name: string
+  public name: string;
 
   constructor(name: string, bar: Bar) {
-    this.name = name
+    this.name = name;
     if (!name) {
-      throw new Error('Name is missing')
+      throw new Error('Name is missing');
     }
 
     if (!bar) {
-      throw new Error('Bar is missing')
+      throw new Error('Bar is missing');
     }
 
-    this.bar = bar
+    this.bar = bar;
   }
 }

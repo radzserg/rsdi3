@@ -73,9 +73,9 @@ Set up your DI container at the app entry point — from there, all other parts 
 const container = new DIContainer()
   .add('a', () => 'name1')
   .add('bar', () => new Bar())
-  .add('foo', ({ a, bar }) => new Foo(a, bar))
+  .add('foo', ({ a, bar }) => new Foo(a, bar));
 
-const { foo } = container // alternatively  container.get("foo")
+const { foo } = container; // alternatively  container.get("foo");
 ```
 
 ### Real-World Example
@@ -89,14 +89,14 @@ export function UserController(
 ) {
   return {
     async create(req: Request, res: Response) {
-      const user = await userRegistrator.register(req.body)
-      res.send(user)
+      const user = await userRegistrator.register(req.body);
+      res.send(user);
     },
     async list(req: Request) {
-      const users = await userRepository.findAll(req.body)
-      res.send(users)
+      const users = await userRepository.findAll(req.body);
+      res.send(users);
     },
-  }
+  };
 }
 
 export class UserRegistrator {
@@ -104,22 +104,22 @@ export class UserRegistrator {
 
   public async register(userData: SignupData) {
     // validate and send sign up email
-    return this.userRepository.saveNewUser(userData)
+    return this.userRepository.saveNewUser(userData);
   }
 }
 
 export function MyDbProviderUserRepository(db: DbConnection): UserRepository {
   return {
     async saveNewUser(userAccountData: SignupData): Promise<void> {
-      await this.db('insert').insert(userAccountData)
+      await this.db('insert').insert(userAccountData);
     },
-  }
+  };
 }
 
 export function buildDbConnection(): DbConnection {
   return connectToDb({
     /* db credentials */
-  })
+  });
 }
 ```
 
@@ -127,9 +127,9 @@ Now let’s configure the dependency injection container. Dependencies are only 
 Your `configureDI` function will declare and connect everything in one place.
 
 ```typescript
-import { DIContainer } from 'rsdi'
+import { DIContainer } from 'rsdi';
 
-export type AppDIContainer = ReturnType<typeof configureDI>
+export type AppDIContainer = ReturnType<typeof configureDI>;
 
 export default function configureDI() {
   return new DIContainer()
@@ -143,7 +143,7 @@ export default function configureDI() {
     )
     .add('userController', ({ userRepository, userRegistrator }) =>
       UserController(userRepository, userRegistrator),
-    )
+    );
 }
 ```
 
@@ -160,8 +160,8 @@ export default function configureRouter(
   app: core.Express,
   diContainer: AppDIContainer,
 ) {
-  const { usersController } = diContainer
-  app.route('/users').get(usersController.list).post(usersController.create)
+  const { usersController } = diContainer;
+  app.route('/users').get(usersController.list).post(usersController.create);
 }
 ```
 
@@ -169,12 +169,12 @@ Add `configureDI()` in your app’s entry point:
 
 ```typescript
 // express.ts
-const app = express()
+const app = express();
 
-const diContainer = configureDI()
-configureRouter(app, diContainer)
+const diContainer = configureDI();
+configureRouter(app, diContainer);
 
-app.listen(8000)
+app.listen(8000);
 ```
 
 🔗 Full example: [Express + RSDI](https://radzserg.medium.com/dependency-injection-in-express-application-dd85295694ab)
@@ -209,35 +209,35 @@ You can extend a container with more dependencies using `.extend()`. This is ide
 export const configureDI = async () => {
   return (await buildDatabaseDependencies())
     .extend(addDataAccessDependencies)
-    .extend(addValidators)
-}
+    .extend(addValidators);
+};
 ```
 
 ```ts
 // addDataAccessDependencies.ts
 
-export type DIWithPool = Awaited<ReturnType<typeof buildDatabaseDependencies>>
+export type DIWithPool = Awaited<ReturnType<typeof buildDatabaseDependencies>>;
 
 export const addDataAccessDependencies = async () => {
-  const pool = await createDatabasePool()
-  const longRunningPool = await createLongRunningDatabasePool()
+  const pool = await createDatabasePool();
+  const longRunningPool = await createLongRunningDatabasePool();
 
   return new DIContainer()
     .add('databasePool', () => pool)
-    .add('longRunningDatabasePool', () => longRunningPool)
-}
+    .add('longRunningDatabasePool', () => longRunningPool);
+};
 ```
 
 ```ts
 // addValidators.ts
 
-export type DIWithValidators = ReturnType<typeof addValidators>
+export type DIWithValidators = ReturnType<typeof addValidators>;
 
 export const addValidators = (container: DIWithPool) => {
   return container
     .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
-    .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c))
-}
+    .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
+};
 ```
 
 ---
@@ -253,18 +253,18 @@ You can merge two containers to combine their resolvers and resolved values.
 ```ts
 const containerA = new DIContainer()
   .add('a', () => '1')
-  .add('bar', () => new Bar())
+  .add('bar', () => new Bar());
 
 const containerB = new DIContainer()
   .add('b', () => 'b')
-  .add('buzz', () => new Buzz('buzz'))
+  .add('buzz', () => new Buzz('buzz'));
 
-const finalContainer = containerA.merge(containerB)
+const finalContainer = containerA.merge(containerB);
 
-console.log(finalContainer.a) // "1"
-console.log(finalContainer.b) // "b"
-console.log(finalContainer.bar instanceof Bar) // true
-console.log(finalContainer.buzz.name) // "buzz"
+console.log(finalContainer.a); // "1"
+console.log(finalContainer.b); // "b"
+console.log(finalContainer.bar instanceof Bar); // true
+console.log(finalContainer.buzz.name); // "buzz"
 ```
 
 ---
@@ -279,11 +279,11 @@ This is useful for creating isolated execution contexts while preserving the bas
 const containerA = new DIContainer()
   .add('a', () => '1')
   .add('bar', () => new Bar())
-  .add('buzz', () => new Buzz('buzz'))
+  .add('buzz', () => new Buzz('buzz'));
 
-const containerB = containerA.clone()
+const containerB = containerA.clone();
 
-console.log(containerB.a) // "1"
-console.log(containerB.bar instanceof Bar) // true
-console.log(containerB.buzz.name) // "buzz"
+console.log(containerB.a); // "1"
+console.log(containerB.bar instanceof Bar); // true
+console.log(containerB.buzz.name); // "buzz"
 ```
