@@ -29,8 +29,7 @@ controllers.
 // router.ts
 const configureRouter = (app: core.Express, diContainer: IDIContainer) => {
   const { usersController } = diContainer;
-  app
-    .route('/users')
+  app.route('/users')
     .get(usersController.actionIndex)
     .post(usersController.actionCreate);
 };

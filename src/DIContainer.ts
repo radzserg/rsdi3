@@ -114,14 +114,14 @@ export class DIContainer<
    * For example:
    *
    * const container = new DIContainer()
-   * .extend(addValidators);
+   * .extend(addValidators)
    *
    * export type DIWithValidators = ReturnType<typeof addValidators>;
    * export const addValidators = (container: DIWithDataAccessors) => {
    * return container
    * .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
    * .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
-   * }
+   * };
    * @param diConfigurationFactory
    */
   public extend<
