@@ -116,7 +116,7 @@ export class DIContainer<
    * const container = new DIContainer()
    * .extend(addValidators);
    *
-   * export type DIWithValidators = ReturnType<typeof addValidators>
+   * export type DIWithValidators = ReturnType<typeof addValidators>;
    * export const addValidators = (container: DIWithDataAccessors) => {
    * return container
    * .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))

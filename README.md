@@ -161,7 +161,10 @@ export default function configureRouter(
   diContainer: AppDIContainer,
 ) {
   const { usersController } = diContainer;
-  app.route('/users').get(usersController.list).post(usersController.create);
+  app
+    .route('/users')
+    .get(usersController.list)
+    .post(usersController.create);
 }
 ```
 
