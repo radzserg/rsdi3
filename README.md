@@ -6,6 +6,11 @@
 
 Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI container with full TypeScript support — no decorators or metadata required.
 
+> **Using an AI coding agent?** Point it at
+> **[docs/ai-agent-guide.md](./docs/ai-agent-guide.md)** — a single-page integration guide covering
+> the API, the mistakes that don't compile, how to structure a large container, and how to decode
+> RSDI's error messages. Every example in it is compile- and runtime-verified.
+
 - [Motivation](#motivation)
 - [Features](#features)
 - [Installation](#installation)
@@ -20,6 +25,7 @@ Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI co
   - [Clone](#clone)
   - [Naming your container type](#naming-your-container-type)
   - [Other methods](#other-methods)
+- [Further reading](#further-reading)
 
 ## Motivation
 
@@ -407,3 +413,18 @@ container.hasResolvedDependency('bar'); // false — not resolved yet
 container.get('bar');
 container.hasResolvedDependency('bar'); // true — now cached
 ```
+
+---
+
+## Further reading
+
+- **[AI agent integration guide](./docs/ai-agent-guide.md)** — one page an AI coding agent can read
+  before wiring RSDI into a project: API reference, the mistakes that fail to compile, how to
+  structure a large container, and how to decode each error.
+- [Async factory resolvers](./docs/async_factory_resolver.md) — why factories are synchronous, and
+  how to handle resources that need `await`.
+- [DI container vs context](./docs/context_vs_container.md) — why the container stays at the
+  composition root instead of being passed through your app.
+- [Strict types](./docs/strict_types.md) — what the compiler catches for you.
+- [Type-performance plan](./docs/type-performance-plan.md) — measurements behind the O(N²) chain
+  cost and the composition guidance, for contributors.

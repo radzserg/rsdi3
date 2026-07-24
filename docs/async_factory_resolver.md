@@ -25,9 +25,14 @@ async function configureDI() {
   // initialize async factories before DI container initialisation
   const dbConnection = await createConnections();
 
-  return new DIContainer()
-    .add('dbConnection', dbConnection)
-    .add('userRepository', ({ dbConnection }) => new UserRepository(dbConnection));
+  return (
+    new DIContainer()
+      // note the arrow function: `add` takes a factory, never a value. Passing
+      // `dbConnection` directly fails to compile and throws "resolver is not a
+      // function" at runtime.
+      .add('dbConnection', () => dbConnection)
+      .add('userRepository', ({ dbConnection }) => new UserRepository(dbConnection))
+  );
 }
 
 // main.ts

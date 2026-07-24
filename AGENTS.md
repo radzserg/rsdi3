@@ -124,7 +124,7 @@ Factories receive `this.context`, a `Proxy` built in the constructor that forwar
 ## Publishing
 
 - `prepublishOnly` runs `pnpm build`, so `dist/` is always fresh on publish.
-- `files` publishes `dist/**` but excludes `dist/**/__tests__/**` — compiled tests are not shipped.
+- `files` publishes `dist/**` but excludes `dist/**/__tests__/**` — compiled tests are not shipped. It also ships `docs/ai-agent-guide.md`, so an AI agent working in a consumer's project can read the integration guide straight out of `node_modules`; that file is the only doc that ships, so any link in it to another doc must be an absolute GitHub URL rather than a relative path.
 - License is **Apache-2.0** (matches the `LICENSE` file).
 
 - **The package is ESM-only and that is deliberate**, not a limitation — nothing in `src/` requires it (no `import.meta`, no top-level await). CommonJS consumers are not shut out: Node 20.19+ and 22.12+ resolve `require()` of an ESM package, so the effective floor for a CJS consumer is Node 20.19 even though `engines.node` says 16.9. TypeScript CJS consumers need `module: nodenext`; on `Node16` they get `TS1479`. Dual-publishing CJS has been considered and rejected — it doubles the build and invites the dual package hazard, where two loaded copies make `instanceof DIContainer` fail.
