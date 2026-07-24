@@ -1,8 +1,7 @@
 // eslint-disable-next-line canonical/filename-match-regex
 import { DIContainer } from '../../DIContainer.js';
 import { Bar, Foo } from '../__helpers__/fakeClasses.js';
-import { expectNotType, expectType } from 'tsd';
-import { describe, test } from 'vitest';
+import { describe, expectTypeOf, test } from 'vitest';
 
 describe('DIContainer typescript type resolution', () => {
   test('if resolves type as given raw values', () => {
@@ -11,14 +10,14 @@ describe('DIContainer typescript type resolution', () => {
       .add('key2', () => 123)
       .add('bar', () => new Bar())
       .add('d', () => '' as unknown);
-    expectType<string>(container.get('key1'));
-    expectType<string>(container.key1);
-    expectType<number>(container.get('key2'));
-    expectType<number>(container.key2);
-    expectType<Bar>(container.get('bar'));
-    expectType<Bar>(container.bar);
-    expectType<unknown>(container.get('d'));
-    expectType<unknown>(container.d);
+    expectTypeOf(container.get('key1')).toEqualTypeOf<string>();
+    expectTypeOf(container.key1).toEqualTypeOf<string>();
+    expectTypeOf(container.get('key2')).toEqualTypeOf<number>();
+    expectTypeOf(container.key2).toEqualTypeOf<number>();
+    expectTypeOf(container.get('bar')).toEqualTypeOf<Bar>();
+    expectTypeOf(container.bar).toEqualTypeOf<Bar>();
+    expectTypeOf(container.get('d')).toEqualTypeOf<unknown>();
+    expectTypeOf(container.d).toEqualTypeOf<unknown>();
   });
 
   test('it overrides the type', () => {
@@ -26,8 +25,8 @@ describe('DIContainer typescript type resolution', () => {
       .add('a', () => 'string')
       .update('a', () => new Date());
 
-    expectType<Date>(container.a);
-    expectNotType<string>(container.a);
+    expectTypeOf(container.a).toEqualTypeOf<Date>();
+    expectTypeOf(container.a).not.toEqualTypeOf<string>();
   });
 
   test('merge containers', () => {
@@ -36,8 +35,8 @@ describe('DIContainer typescript type resolution', () => {
 
     const container = containerA.merge(containerB);
 
-    expectType<Date>(container.b);
-    expectType<string>(container.a);
+    expectTypeOf(container.b).toEqualTypeOf<Date>();
+    expectTypeOf(container.a).toEqualTypeOf<string>();
   });
 
   test('extend function', () => {
@@ -51,9 +50,8 @@ describe('DIContainer typescript type resolution', () => {
       });
     });
 
-    // printType(finalContainer);
-    expectType<string>(finalContainer.a);
-    expectType<Bar>(finalContainer.bar);
-    expectType<Foo>(finalContainer.foo);
+    expectTypeOf(finalContainer.a).toEqualTypeOf<string>();
+    expectTypeOf(finalContainer.bar).toEqualTypeOf<Bar>();
+    expectTypeOf(finalContainer.foo).toEqualTypeOf<Foo>();
   });
 });

@@ -1,14 +1,12 @@
 {
   "name": "rsdi",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "TypeScript dependency injection container. Strong types without decorators.",
   "scripts": {
     "build": "tsc",
-    "test": "vitest --run && tsd",
+    "prepublishOnly": "pnpm build",
+    "test": "vitest --run --typecheck",
     "prepare": "husky"
-  },
-  "tsd": {
-    "directory": "src/__tests__/__typetests__"
   },
   "keywords": [
     "dependency injection",
@@ -25,14 +23,18 @@
     ]
   },
   "files": [
-    "dist/**"
+    "dist/**",
+    "!dist/**/__tests__/**"
   ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "homepage": "https://github.com/radzserg/rsdi3",
   "author": "Sergey Radzishevskii <radzserg@gmail.com>",
-  "license": "ISC",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=14"
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@typescript-eslint/utils": "^8.65.0",
@@ -41,10 +43,9 @@
     "globals": "^17.7.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.1.1",
-    "tsd": "^0.33.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0",
-    "vitest": "^4.1.10"
+    "vitest": "4.1.10"
   },
   "packageManager": "pnpm@11.17.0+sha512.cca3cea332ad254bb84145f966d19f4879615210346fc92c79a047f23a0d7b3cca3c3792f0076ba1f1831d277efbcf0a9119b31a9a60eca7fb3d6231f331ef72"
 }

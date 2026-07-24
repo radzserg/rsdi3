@@ -13,16 +13,16 @@ import {
   type StringLiteral,
 } from './types.js';
 
-const containerMethods = [
+const containerMethods = new Set([
   'add',
-  'get',
-  'extend',
-  'update',
-  'merge',
   'clone',
-  'hasResolvedDependency',
+  'extend',
+  'get',
   'has',
-];
+  'hasResolvedDependency',
+  'merge',
+  'update',
+]);
 
 /**
  * Dependency injection container
@@ -57,7 +57,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
     resolver: R,
   ): IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> {
-    if (containerMethods.includes(name)) {
+    if (containerMethods.has(name)) {
       throw new ForbiddenNameError(name);
     }
 
@@ -84,13 +84,13 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    */
   public clone(): DIContainer<ContainerResolvers> {
     const {
-      resolvedDependencies: newresolvedDependencies,
+      resolvedDependencies: newResolvedDependencies,
       resolvers: newResolvers,
     } = this.export();
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const newContainer = new ClonedDiContainer(
       newResolvers,
-      newresolvedDependencies,
+      newResolvedDependencies,
     );
 
     return newContainer as DIContainer<ContainerResolvers>;
@@ -158,6 +158,9 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * @param name
    */
   public has(name: string): boolean {
+    // Use `Object.prototype.hasOwnProperty.call` rather than `Object.hasOwn`:
+    // the latter needs Node 16.9+, and this package declares no minimum
+    // runtime, so the verbose idiom keeps it working on older Node/browsers.
     return Object.prototype.hasOwnProperty.call(this.resolvers, name);
   }
 
@@ -176,7 +179,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     otherContainer: DIContainer<OtherContainerResolvers>,
   ): IDIContainer<ContainerResolvers & OtherContainerResolvers> {
     const {
-      resolvedDependencies: newresolvedDependencies,
+      resolvedDependencies: newResolvedDependencies,
       resolvers: newResolvers,
     } = otherContainer.export();
 
@@ -187,7 +190,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 
     const resolvedDependencies = {
       ...this.resolvedDependencies,
-      ...newresolvedDependencies,
+      ...newResolvedDependencies,
     };
 
     this.resolvers = resolvers;
@@ -225,7 +228,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
     }
   > {
-    if (containerMethods.includes(name)) {
+    if (containerMethods.has(name)) {
       throw new ForbiddenNameError(name);
     }
 
