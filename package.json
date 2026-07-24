@@ -32,9 +32,6 @@
   "homepage": "https://github.com/radzserg/rsdi3",
   "author": "Sergey Radzishevskii <radzserg@gmail.com>",
   "license": "Apache-2.0",
-  "engines": {
-    "node": ">=16.9"
-  },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@typescript-eslint/utils": "^8.65.0",

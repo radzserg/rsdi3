@@ -84,13 +84,13 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    */
   public clone(): DIContainer<ContainerResolvers> {
     const {
-      resolvedDependencies: newresolvedDependencies,
+      resolvedDependencies: newResolvedDependencies,
       resolvers: newResolvers,
     } = this.export();
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const newContainer = new ClonedDiContainer(
       newResolvers,
-      newresolvedDependencies,
+      newResolvedDependencies,
     );
 
     return newContainer as DIContainer<ContainerResolvers>;
@@ -179,7 +179,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     otherContainer: DIContainer<OtherContainerResolvers>,
   ): IDIContainer<ContainerResolvers & OtherContainerResolvers> {
     const {
-      resolvedDependencies: newresolvedDependencies,
+      resolvedDependencies: newResolvedDependencies,
       resolvers: newResolvers,
     } = otherContainer.export();
 
@@ -190,7 +190,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 
     const resolvedDependencies = {
       ...this.resolvedDependencies,
-      ...newresolvedDependencies,
+      ...newResolvedDependencies,
     };
 
     this.resolvers = resolvers;
