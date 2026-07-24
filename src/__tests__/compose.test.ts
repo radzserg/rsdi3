@@ -43,6 +43,26 @@ describe('DIContainer.compose', () => {
     expect(DIContainer.compose(containerA, containerB).get('a')).toEqual('2');
   });
 
+  test('an overriding container replaces a value the earlier one had already resolved', () => {
+    const containerA = new DIContainer().add('a', () => 'from A');
+    // resolve it first, so the earlier container holds a cached value
+    expect(containerA.a).toEqual('from A');
+
+    const containerB = new DIContainer().add('a', () => 'from B');
+
+    expect(DIContainer.compose(containerA, containerB).a).toEqual('from B');
+  });
+
+  test('an override keeps the later container own resolved value', () => {
+    const containerA = new DIContainer().add('buzz', () => new Buzz('from A'));
+    expect(containerA.buzz.name).toEqual('from A');
+
+    const containerB = new DIContainer().add('buzz', () => new Buzz('from B'));
+    containerB.buzz.name = 'resolved in B';
+
+    expect(DIContainer.compose(containerA, containerB).buzz.name).toEqual('resolved in B');
+  });
+
   test('composes no containers at all', () => {
     expect(DIContainer.compose().has('a')).toBe(false);
   });

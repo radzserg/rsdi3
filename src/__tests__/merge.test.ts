@@ -52,6 +52,16 @@ describe('DIContainer merge containers', () => {
     expect(containerA.merge().a).toEqual('1');
   });
 
+  test('merging an override evicts the value the replaced resolver produced', () => {
+    const containerA = new DIContainer().add('a', () => '1');
+    // resolve before merging, so a stale cached value could survive its own resolver
+    expect(containerA.a).toEqual('1');
+
+    const containerB = new DIContainer().add('a', () => '2');
+
+    expect(containerA.merge(containerB).a).toEqual('2');
+  });
+
   test('resolved properties only once', () => {
     const containerA = new DIContainer().add('buzz', () => new Buzz('buzz'));
     const buzzInstance = containerA.buzz;

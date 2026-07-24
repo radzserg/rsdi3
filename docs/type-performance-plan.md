@@ -171,6 +171,13 @@ constraint) only pay off when factories **don't** read their deps; real factorie
   at ~50 containers**, inference degrades silently. This is why `MergedResolvers` uses a
   union-to-intersection fold instead, which gets _cheaper_ as the container count grows
   (163K → 114K instantiations going from 50 to 200 containers).
+- **Last-writer-wins _types_ for duplicate names across composed containers.** Runtime is
+  last-wins, but the types intersect, so the same name registered with two different types
+  resolves to `never`. Making the types match the runtime needs an order-preserving fold
+  (`Omit<Fold<Rest>, keyof Last> & Last`), which is recursive per container and — measured —
+  trips **TS2589 at 50 containers**, exactly the ceiling `compose` exists to clear. Identical
+  types on both sides are unaffected. Kept as-is and documented: `never` surfaces a duplicate
+  name instead of silently picking one, and deliberate replacement has `update()`.
 - **Removing methods** (`get/update/merge/extend/clone/has`) or the **`CR &` property-access
   sugar**: ≈0% change. They're only instantiated on the final type, not per step. The cost
   is `add` alone.

@@ -15,9 +15,16 @@ import {
   type StringLiteral,
 } from './types.js';
 
+// Every public *instance* member, because `addContainerProperty` defines dependencies as own
+// properties that would otherwise shadow the method of the same name. `export` belongs here even
+// though it is rarely used directly: `merge` calls it on the containers passed to it, so a
+// dependency named `export` turned any `merge`/`compose` involving that container into a
+// `TypeError`. Statics (`compose`) never live on the instance and are deliberately absent.
+// `src/__tests__/reservedNames.test.ts` fails if a new public method is not listed here.
 const containerMethods = new Set([
   'add',
   'clone',
+  'export',
   'extend',
   'get',
   'has',
@@ -71,7 +78,12 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    *
    * The inputs are left untouched: the composed container is a new instance.
    *
-   * When several containers define the same name the last one wins.
+   * When several containers define the same name the last one wins at runtime, including
+   * over a value the earlier container had already resolved. Note the types intersect rather
+   * than overwrite, so a name defined twice with *different* types resolves to `never` — a
+   * deliberate signal, since a scalable last-writer-wins type fold has to recurse per
+   * container and trips TypeScript's depth limiter at ~50 of them. Prefer `update()` when a
+   * replacement is intentional.
    * @param containers
    */
   public static compose<T extends readonly ContainerLike[]>(
@@ -201,8 +213,9 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * Combining modules this way is also much cheaper to type-check than one long
    * `add` chain — see docs/type-performance-plan.md.
    *
-   * When several containers define the same name the last one wins, matching the
-   * behaviour of a chain of two-container merges.
+   * When several containers define the same name the last one wins at runtime, including over
+   * an already-resolved value. The types intersect rather than overwrite, so the same name with
+   * two different types resolves to `never` rather than the later type.
    *
    * This mutates and returns `this`; use `clone()` or the static `DIContainer.compose()`
    * when a separate instance is required.
@@ -215,6 +228,18 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } = (
         otherContainer as DIContainer<ResolvedDependencies>
       ).export();
+
+      // A replaced resolver must not keep the value the previous one produced — the same
+      // eviction `update()` performs. Only the overriding container's own cache may survive,
+      // so a name it re-registers without having resolved yet has to lose the old value;
+      // otherwise `merge`/`compose` return the earlier container's instance from a resolver
+      // that no longer exists, silently contradicting last-writer-wins.
+      for (const name of Object.keys(newResolvers)) {
+        if (!Object.hasOwn(newResolvedDependencies, name)) {
+          // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+          delete this.resolvedDependencies[name as keyof ContainerResolvers];
+        }
+      }
 
       this.resolvers = {
         ...this.resolvers,

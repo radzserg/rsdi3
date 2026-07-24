@@ -302,7 +302,10 @@ Resolution stays lazy and happens against the composed container, so a factory m
 the composed modules. Only the _types_ of a module are limited to what that module declares — annotate the module (as
 `services` does above) or use `.extend()` when you need another module's types to be visible while writing it.
 
-If several containers define the same name, the last one wins.
+If several containers define the same name, the last one wins at runtime — including over a value an
+earlier container had already resolved. Be aware the _types_ intersect rather than overwrite, so the
+same name registered with two different types resolves to `never` instead of the later type. That
+surfaces the collision rather than hiding it; if a replacement is intentional, use `.update()`.
 
 #### Why compose instead of one long chain
 
@@ -335,7 +338,9 @@ You can merge containers to combine their resolvers and resolved values. Unlike 
 the container it is called on.
 
 - Dependencies from all containers are preserved.
-- If several define the same key, the last one takes precedence.
+- If several define the same key, the last one takes precedence at runtime (and any value the
+  replaced resolver had already produced is evicted). Types intersect, so a key defined twice with
+  different types becomes `never`.
 - Already resolved values are reused — not re-created.
 
 ```ts

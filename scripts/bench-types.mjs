@@ -48,7 +48,19 @@ const BUDGETS = {
   'module-seeded-64': 48_000,
 };
 
-const EXACT = `type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;\n`;
+// `[any] extends [T]` and `[T] extends [any]` are both true, so a plain bidirectional-extends
+// check reports `Exact<any, Something>` as a match. That would leave the gate blind to the worst
+// possible regression: inference collapsing to `any` type-checks everything *and* lowers the
+// instantiation count, so it would come in comfortably under budget. Reject `any` on either side.
+const EXACT =
+  `type IsAny<T> = 0 extends 1 & T ? true : false;\n` +
+  `type Exact<A, B> = IsAny<A> extends true\n` +
+  `  ? false\n` +
+  `  : IsAny<B> extends true\n` +
+  `    ? false\n` +
+  `    : [A] extends [B]\n` +
+  `      ? ([B] extends [A] ? true : false)\n` +
+  `      : false;\n`;
 
 /** A flat chain — the shape that costs O(N²). Guards the per-`add` constant factor. */
 const chainFixture = (n) => {
