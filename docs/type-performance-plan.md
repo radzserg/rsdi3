@@ -40,7 +40,7 @@ one finding (the crash) did not survive the last one.
 | 1   | Make modular composition first-class (`compose` + variadic `merge` + docs) | **High** (the scalability answer) | Low–Med | ✅ **Done**                                          |
 | 2   | Guardrail the single-chain crash                                           | —                                 | —       | ➖ **Obsolete on TS 7** (no crash); item 1 covers it |
 | 3   | Constant-factor type cleanups (`add`/`update` signatures)                  | Low–Med                           | Low     | ✅ **Done**                                          |
-| 4   | Escape hatch for consumers (seal container behind a named type)            | Med (downstream files)            | Low     | ⬜ Not started                                       |
+| 4   | Escape hatch for consumers (seal container behind a named type)            | Low (readability only)            | Low     | ✅ **Done** (premise disproved; shipped as DX only)  |
 | 5   | CI perf regression gate (benchmark harness)                                | Med (prevents regressions)        | Low     | ⬜ Not started                                       |
 
 ---
@@ -139,6 +139,9 @@ constraint) only pay off when factories **don't** read their deps; real factorie
   is `add` alone.
 - **Dropping `ReturnType<R>` for an inferred `V`** (item 3): only ~1% once factories read
   their deps. Worth doing for simplicity, not for speed.
+- **Sealing/flattening the container type for consumer files** (item 4): consumers are already
+  cheap (~2.6K instantiations per file, cached per program), and sealing costs ~3% _more_.
+  Useful for readable error messages only — never as a performance fix.
 
 ---
 
@@ -198,12 +201,48 @@ declared return type unchanged). Two fewer moving parts per call site; one gener
 - Full gate green: `pnpm build`, `pnpm test` (42 tests + type tests), lint.
 - Measured (TS 6): N=200 deref 266,569 → 263,808 (−1%); no-deref ~177K → 140,255 (−20%).
 
-### 4. Escape hatch for downstream consumers ⬜
+### 4. Escape hatch for downstream consumers ✅ **Done — but the premise was wrong**
 
-Document sealing the built container behind a single named type —
-`export type AppContainer = ReturnType<typeof buildContainer>` — so files that _consume_ the
-container reference one materialized type instead of re-deriving the whole builder chain.
-Optionally offer an opt-in loose/index-signature mode for extreme scale.
+The item assumed consumer files "re-derive the whole builder chain" and that sealing would cut
+that cost. **Measurement says otherwise, so nothing was shipped as a performance fix.**
+
+Consumer-side cost, N=400 dependencies built from 20 modules:
+
+| Consumers | `typeof container` | sealed (`Simplify` flatten) |
+| --------- | -----------------: | --------------------------: |
+| 1         |               277K |                        284K |
+| 20        |               385K |                        398K |
+| 50        |               409K |                        423K |
+
+Three conclusions, each measured:
+
+1. **Consumers are already cheap.** TypeScript resolves the container type once per program and
+   caches it; going from 1 to 50 consumer files adds only ~2.6K instantiations each. Even 10
+   consumers destructuring 50 dependencies apiece (500 references) changed nothing material.
+2. **Sealing costs more, not less** — consistently ~3% more instantiations, and a
+   `Simplify`-based variant tripled declaration-emit time at N=400 (0.16s → 0.47s). A "faster"
+   helper that is measurably slower would have been actively harmful to ship.
+3. **A loose/index-signature mode is not worth pursuing.** It would trade away exact per-key
+   typing — the entire point of the library — to fix a cost that does not exist.
+
+What _is_ real is **readability**. `typeof container` and `ReturnType<typeof configureDI>` both
+resolve to a type that already carries its own name, so diagnostics expand the full resolver
+intersection — unreadable past a few dozen dependencies. So the shipped piece is a two-line
+ergonomic helper, documented as such:
+
+```ts
+export type SealedContainer<C> = IDIContainer<ResolversOf<C>>;
+```
+
+Wrapping the container creates a _fresh_ alias, so TypeScript prints `AppContainer` instead of
+`IDIContainer<{ a: … } & { b: … } & …>`. The flatten is **not** needed for this —
+`IDIContainer<ResolversOf<C>>` preserves the name on its own, at lower cost than a `Simplify`
+version. `SealedContainer` and `ResolversOf` are now exported from the package entry point.
+
+- **Verified:** exact dependency types preserved through the alias, container stays chainable,
+  works for both chained and composed containers, and the alias name survives into real
+  diagnostics when consumed from the built `dist/`.
+- Full gate green: `pnpm build`, `pnpm test` (82 tests + type tests), `pnpm lint`.
 
 ### 5. CI perf regression gate ⬜
 

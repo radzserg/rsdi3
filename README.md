@@ -18,6 +18,7 @@ Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI co
   - [Compose](#compose)
   - [Merge](#merge)
   - [Clone](#clone)
+  - [Naming your container type](#naming-your-container-type)
   - [Other methods](#other-methods)
 
 ## Motivation
@@ -353,6 +354,38 @@ console.log(containerB.a); // "1"
 console.log(containerB.bar instanceof Bar); // true
 console.log(containerB.buzz.name); // "buzz"
 ```
+
+---
+
+### Naming your container type
+
+Consumer files usually want to refer to the built container by name:
+
+```ts
+export type AppDIContainer = ReturnType<typeof configureDI>;
+```
+
+That works, but TypeScript still expands it in diagnostics, so a container with a few hundred dependencies produces
+errors and hovers like `IDIContainer<{ a: string; } & { b: number; } & … }>`. Wrapping it in `SealedContainer` creates a
+fresh alias that TypeScript prints by name instead:
+
+```ts
+import { type SealedContainer } from 'rsdi';
+
+export type AppDIContainer = SealedContainer<ReturnType<typeof configureDI>>;
+
+// error messages and hovers now say `AppDIContainer`
+export function configureRouter(app: core.Express, container: AppDIContainer) {
+  const { userController } = container; // still fully typed
+}
+```
+
+The dependency types are unchanged — `container.userController` resolves exactly as before, and the container stays
+chainable.
+
+This is purely for readability. Referring to a container from another file is already cheap: in a 400-dependency graph,
+50 consumer files add only ~2.6K type instantiations each, and naming the type costs about 3% _more_, not less. Reach
+for it when your error messages get unreadable, not to speed up compilation — for that, see [Compose](#compose).
 
 ---
 

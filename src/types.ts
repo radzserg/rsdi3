@@ -73,6 +73,24 @@ export type Resolvers<CR extends ResolvedDependencies> = {
 export type ResolversOf<C> =
   C extends DIContainer<infer R> ? R : C extends IDIContainer<infer R> ? R : never;
 
+/**
+ * Gives a built container a name that survives into hovers and error messages.
+ *
+ * `typeof container` and `ReturnType<typeof configureDI>` both resolve to a type
+ * that already carries its own name, so TypeScript prints the whole resolver
+ * intersection instead of the alias — unreadable once a container has more than a
+ * handful of dependencies. Wrapping the container in this helper produces a fresh
+ * alias, so diagnostics print `AppContainer` rather than
+ * `IDIContainer<{ a: … } & { b: … } & …>`.
+ *
+ * export type AppContainer = SealedContainer<typeof container>;
+ *
+ * This is an ergonomic wrapper, not a performance one: resolving a container type
+ * in a consuming file is already cheap, and naming it costs marginally more.
+ * The dependency types themselves are unchanged.
+ */
+export type SealedContainer<C> = IDIContainer<ResolversOf<C>>;
+
 export type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
 export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
