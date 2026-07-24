@@ -428,3 +428,5 @@ container.hasResolvedDependency('bar'); // true — now cached
 - [Strict types](./docs/strict_types.md) — what the compiler catches for you.
 - [Type-performance plan](./docs/type-performance-plan.md) — measurements behind the O(N²) chain
   cost and the composition guidance, for contributors.
+- [Reading `pnpm bench:types`](./docs/type-benchmarks.md) — how to interpret the type-cost gate,
+  for contributors.

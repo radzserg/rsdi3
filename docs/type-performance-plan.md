@@ -247,8 +247,9 @@ version. `SealedContainer` and `ResolversOf` are now exported from the package e
 ### 5. CI perf regression gate ✅ **Done**
 
 `scripts/bench-types.mjs`, wired into CI as the `types-perf` job and runnable locally with
-`pnpm bench:types`. Three scenarios, each gated on a type-instantiation budget (~25% headroom
-over the measured value on TypeScript 7.0.2):
+`pnpm bench:types` — see [type-benchmarks.md](./type-benchmarks.md) for how to read its report.
+Three scenarios, each gated on a type-instantiation budget (~25% headroom over the measured value
+on TypeScript 7.0.2):
 
 | Scenario        | What it guards                               | Measured | Budget |
 | --------------- | -------------------------------------------- | -------: | -----: |

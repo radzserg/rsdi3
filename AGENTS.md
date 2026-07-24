@@ -29,7 +29,7 @@ Type tests only run when `--typecheck` is passed, so a bare `npx vitest --run` s
 
 There is no separate typecheck script — `pnpm test` runs both runtime tests and type tests in one pass. Always run `pnpm build`, `pnpm test`, and `pnpm lint` before considering a change done; CI (`.github/workflows/ci.yml`) runs `pnpm build` + `pnpm lint` in one job and `pnpm test` across a Node matrix in another, with an aggregate `CI` job as the single required status check.
 
-**Run `pnpm bench:types` too whenever you touch `src/types.ts` or an `add`/`merge`/`compose` signature.** The type tests assert inference at three or four dependencies, which is too small to expose how these types actually fail — both known failure modes pass the full 82-test suite untouched. `scripts/bench-types.mjs` checks the shapes that are big enough, and gates them on instantiation budgets; it runs in CI as the `types-perf` job. Budgets are compiler-specific, so a TypeScript upgrade needs them re-baselined in the same commit.
+**Run `pnpm bench:types` too whenever you touch `src/types.ts` or an `add`/`merge`/`compose` signature.** The type tests assert inference at three or four dependencies, which is too small to expose how these types actually fail — both known failure modes pass the full 82-test suite untouched. `scripts/bench-types.mjs` checks the shapes that are big enough, and gates them on instantiation budgets; it runs in CI as the `types-perf` job. Budgets are compiler-specific, so a TypeScript upgrade needs them re-baselined in the same commit. `docs/type-benchmarks.md` explains how to read the report and what to do with each kind of failure.
 
 ## Source layout
 
