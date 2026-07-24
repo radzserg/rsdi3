@@ -15,6 +15,7 @@ Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI co
 - [Strict types](#strict-types)
 - [Advanced Usage](#advanced-usage)
   - [Extend](#extend)
+  - [Compose](#compose)
   - [Merge](#merge)
   - [Clone](#clone)
   - [Other methods](#other-methods)
@@ -46,6 +47,7 @@ RSDI avoids this by using explicit factory functions — keeping your code clean
 - Simple API
 - No runtime dependencies
 - Easy to mock and test
+- Scales to large graphs — [compose](#compose) independent modules instead of one long chain
 
 ## Installation
 
@@ -260,12 +262,56 @@ export const addValidators = (container: DIWithPool) => {
 
 ---
 
+### Compose
+
+`DIContainer.compose()` combines independently built containers into one new container. It is the recommended way to
+wire a large dependency graph, and it keeps the inputs untouched.
+
+```ts
+// repositories.ts
+export const repositories = new DIContainer().add('userRepository', () => new UserRepository());
+
+// services.ts — declare what this module expects the composed container to provide
+export const services = new DIContainer<{ userRepository: UserRepository }>().add(
+  'userService',
+  ({ userRepository }) => new UserService(userRepository),
+);
+
+// container.ts
+const container = DIContainer.compose(repositories, services);
+
+container.userService; // UserService — fully typed
+```
+
+Resolution stays lazy and happens against the composed container, so a factory may depend on names provided by any of
+the composed modules. Only the _types_ of a module are limited to what that module declares — annotate the module (as
+`services` does above) or use `.extend()` when you need another module's types to be visible while writing it.
+
+If several containers define the same name, the last one wins.
+
+#### Why compose instead of one long chain
+
+Each `.add()` widens the container type, so a single chain of N dependencies costs **O(N²)** to type-check. Splitting
+the graph into modules keeps each chain short, and the compiler only pays the quadratic within a module. Measured with
+TypeScript 7 on this repo's benchmark (1600 dependencies, no factory arguments):
+
+| Layout                         | Type instantiations | Check time |
+| ------------------------------ | ------------------: | ---------: |
+| one chain of 1600              |           7,815,223 |     90.2 s |
+| 80 modules of 20, then compose |             361,552 |      0.9 s |
+
+That is ~22× fewer instantiations and ~100× faster. If your editor feels sluggish in the file that wires your
+container, this is usually why.
+
+---
+
 ### Merge
 
-You can merge two containers to combine their resolvers and resolved values.
+You can merge containers to combine their resolvers and resolved values. Unlike `compose`, `merge` mutates and returns
+the container it is called on.
 
-- Dependencies from both containers are preserved.
-- If both define the same key, the merging container's value takes precedence.
+- Dependencies from all containers are preserved.
+- If several define the same key, the last one takes precedence.
 - Already resolved values are reused — not re-created.
 
 ```ts
@@ -279,6 +325,12 @@ console.log(finalContainer.a); // "1"
 console.log(finalContainer.b); // "b"
 console.log(finalContainer.bar instanceof Bar); // true
 console.log(finalContainer.buzz.name); // "buzz"
+```
+
+`merge` accepts several containers at once, which avoids a long chain of merges:
+
+```ts
+const finalContainer = base.merge(repositories, services, controllers);
 ```
 
 ---

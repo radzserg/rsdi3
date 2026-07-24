@@ -4,9 +4,11 @@ import {
   ForbiddenNameError,
 } from './errors.js';
 import {
+  type ContainerLike,
   type DenyInputKeys,
   type Factory,
   type IDIContainer,
+  type MergedResolvers,
   type ResolvedDependencies,
   type ResolvedDependencyValue,
   type Resolvers,
@@ -44,6 +46,38 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
         return target[propertyName];
       },
     }) as unknown as ContainerResolvers;
+  }
+
+  /**
+   * Combines independently built containers into a single new container.
+   *
+   * This is the recommended way to wire a large dependency graph. Splitting the graph
+   * into modules and composing them is dramatically cheaper to type-check than one long
+   * `add` chain, because each module chain is type-checked against its own small
+   * resolver map instead of the ever-growing combined one:
+   *
+   * // repositories.ts
+   * export const repositories = new DIContainer().add('userRepository', () => new UserRepository());
+   * // services.ts
+   * export const services = new DIContainer().add('mailer', () => new Mailer());
+   * // container.ts
+   * const container = DIContainer.compose(repositories, services);
+   *
+   * Factories may depend on names provided by any of the composed containers — resolution
+   * happens lazily against the composed container, so cross-module dependencies work at
+   * runtime. Only the *types* of a module are limited to what that module declares; when a
+   * module needs another module's dependencies to be visible at compile time, layer them
+   * with `extend` instead.
+   *
+   * The inputs are left untouched: the composed container is a new instance.
+   *
+   * When several containers define the same name the last one wins.
+   * @param containers
+   */
+  public static compose<T extends readonly ContainerLike[]>(
+    ...containers: T
+  ): IDIContainer<MergedResolvers<T>> {
+    return new DIContainer().merge(...containers) as IDIContainer<MergedResolvers<T>>;
   }
 
   /**
@@ -157,34 +191,47 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   }
 
   /**
-   * Merges two containers. It will return a new container with merged resolvers. Resolved dependencies will be merged as well.
-   * @param otherContainer
+   * Merges other containers into this one. Resolved dependencies are merged as well.
+   *
+   * Accepts any number of containers, so a set of independently built modules can be
+   * combined in a single call:
+   *
+   * base.merge(repositories, services, controllers)
+   *
+   * Combining modules this way is also much cheaper to type-check than one long
+   * `add` chain — see docs/type-performance-plan.md.
+   *
+   * When several containers define the same name the last one wins, matching the
+   * behaviour of a chain of two-container merges.
+   *
+   * This mutates and returns `this`; use `clone()` or the static `DIContainer.compose()`
+   * when a separate instance is required.
+   * @param containers
    */
-  public merge<OtherContainerResolvers extends ResolvedDependencies>(
-    otherContainer: DIContainer<OtherContainerResolvers>,
-  ): IDIContainer<ContainerResolvers & OtherContainerResolvers> {
-    const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } =
-      otherContainer.export();
+  public merge<T extends readonly ContainerLike[]>(
+    ...containers: T
+  ): IDIContainer<ContainerResolvers & MergedResolvers<T>> {
+    for (const otherContainer of containers) {
+      const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } = (
+        otherContainer as DIContainer<ResolvedDependencies>
+      ).export();
 
-    const resolvers = {
-      ...this.resolvers,
-      ...newResolvers,
-    };
+      this.resolvers = {
+        ...this.resolvers,
+        ...newResolvers,
+      };
 
-    const resolvedDependencies = {
-      ...this.resolvedDependencies,
-      ...newResolvedDependencies,
-    };
+      this.resolvedDependencies = {
+        ...this.resolvedDependencies,
+        ...newResolvedDependencies,
+      };
+    }
 
-    this.resolvers = resolvers;
-    this.resolvedDependencies = {
-      ...resolvedDependencies,
-    };
     for (const property of Object.keys(this.resolvers)) {
       this.addContainerProperty(property);
     }
 
-    return this as unknown as IDIContainer<ContainerResolvers & OtherContainerResolvers>;
+    return this as unknown as IDIContainer<ContainerResolvers & MergedResolvers<T>>;
   }
 
   /**

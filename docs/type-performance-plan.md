@@ -2,62 +2,68 @@
 
 > **Audience:** AI agents and maintainers continuing work on the "heavy types" pain point.
 > **Context:** In large projects (hundreds–thousands of dependencies) the container's
-> types get expensive to check and, past a threshold, crash `tsc` outright. This doc
-> captures the root-cause analysis, the measured evidence, what does **not** help, and
-> the ranked improvement plan with status.
+> types get expensive to check. This doc captures the root-cause analysis, the measured
+> evidence, what does **not** help, and the ranked improvement plan with status.
 
-All numbers below were measured with the repo's own **TypeScript 6.0.3** under `strict`,
-via `tsc --extendedDiagnostics`. **Instantiation counts are deterministic** and are the
-reliable metric; wall-clock check-time is single-run noise (±0.15s) — treat it as indicative only.
+Numbers are measured under `strict` via `tsc --extendedDiagnostics`. **Instantiation counts
+are deterministic** and are the reliable metric; wall-clock check-time is single-run noise —
+treat it as indicative only.
+
+The repo moved from **TypeScript 6.0.3** to **TypeScript 7.0.2** (the native Go compiler)
+partway through this work. Everything below was **re-measured on TS 7**; where TS 7 changed
+a conclusion it is called out explicitly. Re-validate after any future compiler bump —
+one finding (the crash) did not survive the last one.
 
 ---
 
 ## TL;DR
 
 - Each `.add()` returns `IDIContainer<CR & { [n in N]: … }>`. The container type **is** the
-  full dependency map, re-embedded at every link. Type-checking link *k* is **O(k)**, so a
+  full dependency map, re-embedded at every link. Type-checking link _k_ is **O(k)**, so a
   chain of N adds is **O(N²)**. This is inherent to any fluent builder that exposes exact
-  per-key types — not a bug in the type code.
-- **Two cliffs:** (1) O(N²) makes big projects slow to check; (2) a **single fluent
-  `.add().add()…` expression of ~500–600 links crashes `tsc`** with
-  `RangeError: Maximum call stack size exceeded` — this is **AST depth**, independent of
-  the type design (even a minimal container type crashes at the same length).
-- **The real fix for "thousands" is composition** (split into modules, `merge`/`extend`):
-  it turns O(N²) into ~O(N²/m + N) and keeps every chain short. Everything else is
-  constant-factor cleanup or guardrails.
+  per-key types — not a bug in the type code. **Still true on TS 7.**
+- **The fix for "thousands" is composition** (build modules independently, then combine):
+  it turns O(N²) into ~O(N²/m + N) and keeps every chain short. At 1600 dependencies this is
+  **~22× fewer instantiations and ~100× faster** (90.2 s → 0.9 s). Shipped as
+  `DIContainer.compose()` + variadic `merge()`.
+- **Fixed on TS 7:** under TS 6, one fluent `.add().add()…` expression of ~500–600 links
+  crashed `tsc` with `RangeError: Maximum call stack size exceeded` (AST depth, not types).
+  The Go compiler handles 1200+ links without crashing — just slowly. Item 2 is therefore
+  moot for TS 7 consumers and remains relevant only for anyone still on TS 6.
 
 ---
 
 ## Status of the plan
 
-| # | Item | Impact | Risk | Status |
-|---|------|--------|------|--------|
-| 1 | Make modular composition first-class (`compose`/`register` helper + docs) | **High** (the scalability answer) | Low–Med | ⬜ Not started |
-| 2 | Guardrail the single-chain crash (array-based API + docs) | Med (prevents hard failure) | Low | ⬜ Not started |
-| 3 | Constant-factor type cleanups (`add`/`update` signatures) | Low–Med | Low | ✅ **Done** |
-| 4 | Escape hatch for consumers (seal container behind a named type) | Med (downstream files) | Low | ⬜ Not started |
-| 5 | CI perf regression gate (benchmark harness) | Med (prevents regressions) | Low | ⬜ Not started |
+| #   | Item                                                                       | Impact                            | Risk    | Status                                               |
+| --- | -------------------------------------------------------------------------- | --------------------------------- | ------- | ---------------------------------------------------- |
+| 1   | Make modular composition first-class (`compose` + variadic `merge` + docs) | **High** (the scalability answer) | Low–Med | ✅ **Done**                                          |
+| 2   | Guardrail the single-chain crash                                           | —                                 | —       | ➖ **Obsolete on TS 7** (no crash); item 1 covers it |
+| 3   | Constant-factor type cleanups (`add`/`update` signatures)                  | Low–Med                           | Low     | ✅ **Done**                                          |
+| 4   | Escape hatch for consumers (seal container behind a named type)            | Med (downstream files)            | Low     | ⬜ Not started                                       |
+| 5   | CI perf regression gate (benchmark harness)                                | Med (prevents regressions)        | Low     | ⬜ Not started                                       |
 
 ---
 
 ## Root cause
 
 `IDIContainer<CR> = CR & { add; get; update; merge; extend; clone; has; … }`, and
-`add` returns `IDIContainer<CR & { [n in N]: V }>`. To type-check link *k* against a
-*k*-key map, TypeScript must:
+`add` returns `IDIContainer<CR & { [n in N]: V }>`. To type-check link _k_ against a
+_k_-key map, TypeScript must:
 
-1. resolve `.add` on a *k*-constituent intersection (`CR & { …methods }`);
+1. resolve `.add` on a _k_-constituent intersection (`CR & { …methods }`);
 2. compute `keyof CR` for the `DenyInputKeys` duplicate-name guard;
 3. relate the factory to `(resolvers: CR) => V` and resolve any destructured deps
-   (`({ a, b }) =>`) against the *k*-key map;
+   (`({ a, b }) =>`) against the _k_-key map;
 4. build the next `CR & { new }` and re-instantiate the **recursive** `IDIContainer` alias.
 
 Each is **O(k)** ⇒ whole chain **O(N²)**.
 
-The ~500–600-link **crash** is a separate mechanism: one `.add().add()…` mega-expression
-is a 500+-deep syntax tree, and `tsc`'s parent-node walkers (e.g. `getAssignmentDeclarationKind`)
-overflow the JS call stack. Splitting the identical adds into separate statements removes
-the crash (but stays O(N²)).
+**The TS 6 crash (historical).** One `.add().add()…` mega-expression is a 500+-deep syntax
+tree, and TS 6's parent-node walkers (e.g. `getAssignmentDeclarationKind`) overflowed the JS
+call stack at ~500–600 links; splitting the adds into separate statements removed it. TS 7's
+Go compiler does not have this limit (verified to 1200 links), so this no longer gates anyone
+on a current toolchain.
 
 ---
 
@@ -67,39 +73,50 @@ Faithfulness check: an inlined model of `types.ts` reproduced the **real** `src/
 cost to within ~1.5% (266,569 vs 262,853 instantiations at N=200), so the model-based
 ablations below are trustworthy.
 
-### Single fluent chain scales quadratically, then crashes
+### Single fluent chain scales quadratically (TS 7, real `src/`, factories reading deps)
 
-| Scenario (TS 6.0.3, strict) | Instantiations | Check time | Result |
-|---|---:|---:|---|
-| chain N=100 | 71K | 0.20s | ok |
-| chain N=200 (real `src/`) | 266K | 0.81s | ok |
-| chain N=400 | 674K–1.02M | 3.9–4.2s | slow |
-| **chain N≈600** | — | — | **`RangeError: Maximum call stack size exceeded`** |
+| Scenario | Instantiations | Check time |
+| -------- | -------------: | ---------: |
+| N=100    |            74K |      0.06s |
+| N=200    |           264K |      0.26s |
+| N=400    |          1.00M |      1.63s |
+| N=800    |          3.92M |      11.9s |
 
-Crash threshold is between **500 (ok)** and **600 (crash)** links. Confirmed design-independent
-(a bare minimal container type crashes at 600 too). Same 800 adds as **separate statements**
-do **not** crash (they compile in ~30s / ~3.9M instantiations).
+Instantiations quadruple per doubling — textbook O(N²). No crash at any length on TS 7
+(a single 1200-link expression compiles in ~37s).
 
-### Composition breaks the quadratic (N=400, current types)
+### Composition breaks the quadratic (TS 7, real `DIContainer.compose`)
 
-| Layout | Instantiations | Check time |
-|---|---:|---:|
-| 1 × 400 (one chain) | 674K | 3.85s |
-| 4 × 100 | 196K | 0.52s |
-| 8 × 50 | 117K | 0.31s |
-| **20 × 20** | **74K** | **0.28s** |
+| Layout                        | Instantiations | Check time |
+| ----------------------------- | -------------: | ---------: |
+| 1 chain of 400                |           519K |      1.50s |
+| 20 modules × 20 → compose     |            97K |      0.09s |
+| 1 chain of 800                |          1.99M |      11.5s |
+| 40 modules × 20 → compose     |           185K |      0.26s |
+| **1 chain of 1600**           |  **7,815,223** |  **90.2s** |
+| **80 modules × 20 → compose** |    **361,552** |   **0.9s** |
 
-≈9× fewer instantiations, ≈14× faster — **and** every module chain stays short (fast editor
-feedback, no crash risk).
+At 1600 dependencies that is **~22× fewer instantiations and ~100× faster**. The win grows
+with N, because the flat chain is quadratic and the composed layout is not.
+
+Module _size_ matters more than module count: 20–40 dependencies per module is the sweet
+spot, and past that the returns flatten (m=40 vs m=80 at N=1600 differ by <25%).
+
+### The `extend` pattern scales too (and keeps cross-module types)
+
+Module functions with an explicitly declared requirement, folded with `.extend()`:
+N=800 as 20 modules costs **187K / 0.19s** — same order as `compose`, versus 1.99M / 11.5s
+for the flat chain. Use `extend` when a module needs a previous module's types while it is
+being written; use `compose` for independently built modules.
 
 ### Cost decomposition (per-`add`, N=400, no-deref)
 
-| Variant | Instantiations | vs full |
-|---|---:|---:|
-| full `add` (guard + `Factory<CR>` constraint) | 674K | — |
-| drop `keyof` duplicate-guard | 496K | −26% |
-| drop `Factory<CR>` constraint | 350K | −48% |
-| drop both ("bare") | 172K | −75% (still O(N²)) |
+| Variant                                       | Instantiations |            vs full |
+| --------------------------------------------- | -------------: | -----------------: |
+| full `add` (guard + `Factory<CR>` constraint) |           674K |                  — |
+| drop `keyof` duplicate-guard                  |           496K |               −26% |
+| drop `Factory<CR>` constraint                 |           350K |               −48% |
+| drop both ("bare")                            |           172K | −75% (still O(N²)) |
 
 Even the bare minimum is quadratic. The two removable hotspots (`keyof` guard, `Factory`
 constraint) only pay off when factories **don't** read their deps; real factories destructure
@@ -112,6 +129,11 @@ constraint) only pay off when factories **don't** read their deps; real factorie
 - **Naive `Simplify`/`Prettify` flatten** on the accumulator (`{ [K in keyof T]: T[K] }`):
   trips TS's depth limiter (**TS2589**) at ~50 links and silently collapses inference to
   `never`. Actively harmful.
+- **A recursive tuple fold for combining containers**
+  (`T extends [infer H, ...infer R] ? ResolversOf<H> & Fold<R> : {}`): same failure — **TS2589
+  at ~50 containers**, inference degrades silently. This is why `MergedResolvers` uses a
+  union-to-intersection fold instead, which gets _cheaper_ as the container count grows
+  (163K → 114K instantiations going from 50 to 200 containers).
 - **Removing methods** (`get/update/merge/extend/clone/has`) or the **`CR &` property-access
   sugar**: ≈0% change. They're only instantiated on the final type, not per step. The cost
   is `add` alone.
@@ -122,23 +144,46 @@ constraint) only pay off when factories **don't** read their deps; real factorie
 
 ## The plan
 
-### 1. Make modular composition first-class — *the actual fix for "thousands"* ⬜
+### 1. Make modular composition first-class — _the actual fix for "thousands"_ ✅ **Done**
 
-Splitting N deps into *m* modules and combining cuts build cost ~*m*× (O(N²)→O(N²/m + N))
-and keeps each chain short. `merge`/`extend` already exist; the work is ergonomics + docs:
+Shipped two additions, both driven by the same type helper:
 
-- Add a composition helper so users never write one giant chain — e.g.
-  `DIContainer.compose(moduleA, moduleB, …)` or `container.register(fnA, fnB, …)` folding
-  `extend`. A **rest/array-argument** form is important: it also sidesteps the AST-depth crash.
-- Prominent README/docs guidance: "for large graphs, split into feature modules and
-  `merge`/`extend`."
-- Verify the helper's own type cost stays ~linear in module count (the 20×20 data suggests it does).
+- **`DIContainer.compose(...containers)`** — a **static** method that combines independently
+  built containers into a **new** container (inputs untouched). This is the documented way to
+  wire a large graph.
+- **Variadic `merge(...containers)`** — the existing instance method now takes any number of
+  containers, so `base.merge(repos, services, controllers)` replaces a chain of merges.
+  Backward compatible: single-argument calls infer exactly as before.
 
-### 2. Guardrail the single-chain crash ⬜
+Type machinery in `types.ts`: `ContainerLike`, `ResolversOf`, `UnionToIntersection`, and
+`MergedResolvers` (union-to-intersection, **not** a recursive fold — see the ruled-out list).
+`ResolversOf` checks the `DIContainer` class branch **before** the `IDIContainer` branch,
+because a class instance also structurally matches `IDIContainer`; without that ordering a raw
+`new DIContainer()` passed to `compose` silently contributes `never`.
 
-Even after everything else, ~500+ links in one expression stack-overflow `tsc`. Document a
-soft cap ("keep any single `.add()` chain to a few hundred; beyond that, compose") and prefer
-the array-based `register([...])` API from item 1, which avoids the giant-expression AST entirely.
+`compose` is **static**, so it needs no entry in the `containerMethods` guard set — that set
+only protects instance members from being shadowed by dependency names.
+
+- **Verified:** exact inference on composed containers, composed containers stay chainable,
+  zero-argument and single-argument `compose`, raw `DIContainer` instances accepted, modules
+  that declare their requirements (`new DIContainer<{ bar: Bar }>()`) compose correctly.
+  Runtime: laziness/caching preserved, resolved values carried over, inputs not mutated,
+  cross-module dependencies resolve, last-writer-wins on duplicate names.
+- Full gate green: `pnpm build`, `pnpm test` (59 tests + type tests), `pnpm lint`.
+- Measured: see the composition table above (1600 deps: 90.2s → 0.9s).
+
+**Known limitation (documented in the README).** A module built standalone only _types_ what
+it declares, so a factory in module B cannot destructure module A's dependencies with
+inference unless the module annotates its requirement
+(`new DIContainer<{ userRepository: UserRepository }>()`) or is layered with `.extend()`
+instead. Resolution itself is unaffected — it happens lazily against the composed container.
+
+### 2. Guardrail the single-chain crash ➖ **Obsolete on TS 7**
+
+Under TS 6, ~500+ links in one expression stack-overflowed `tsc`. TS 7's Go compiler has no
+such limit (verified to 1200 links), so no guardrail is needed on a current toolchain. Item 1
+addresses the remaining (performance) reason to avoid very long chains. Revisit only if the
+project ever supports TS 6 consumers again.
 
 ### 3. Constant-factor type cleanups ✅ **Done**
 
@@ -150,13 +195,13 @@ declared return type unchanged). Two fewer moving parts per call site; one gener
 
 - **Verified:** exact inference preserved (literal widening `() => 123` → `number`, `update`
   override, factories reading prior deps, duplicate-name / unknown-dep still error).
-- Full gate green: `pnpm build`, `pnpm test` (42 tests + type tests), `npx eslint`.
-- Measured: N=200 deref 266,569 → 263,808 (−1%); no-deref ~177K → 140,255 (−20%).
+- Full gate green: `pnpm build`, `pnpm test` (42 tests + type tests), lint.
+- Measured (TS 6): N=200 deref 266,569 → 263,808 (−1%); no-deref ~177K → 140,255 (−20%).
 
 ### 4. Escape hatch for downstream consumers ⬜
 
 Document sealing the built container behind a single named type —
-`export type AppContainer = ReturnType<typeof buildContainer>` — so files that *consume* the
+`export type AppContainer = ReturnType<typeof buildContainer>` — so files that _consume_ the
 container reference one materialized type instead of re-deriving the whole builder chain.
 Optionally offer an opt-in loose/index-signature mode for extreme scale.
 
@@ -187,17 +232,21 @@ for (let i = 2; i < n; i++)
 writeFileSync(`chain_${n}.ts`, s);
 ```
 
-Use **per-statement** form (as above) to measure type cost without the AST-depth crash;
-use one `.add().add()…` expression to reproduce the crash.
+For the composed layout, emit _m_ independent `new DIContainer()` chains of `N/m` adds each and
+finish with a single `DIContainer.compose(mod0, …, modM)` call.
 
-**Measure** (note TS 6 needs `--ignoreConfig` when a tsconfig is present and files are passed):
+**Measure** — pass `--ignoreConfig` whenever a tsconfig is present and files are listed
+explicitly, and pin `--target/--lib es2022` to match the package's floor:
 
 ```bash
-tsc --noEmit --ignoreConfig --extendedDiagnostics --strict --skipLibCheck \
-  --module nodenext --moduleResolution nodenext chain_200.ts
+./node_modules/.bin/tsc --noEmit --ignoreConfig --extendedDiagnostics --strict --skipLibCheck \
+  --target es2022 --lib es2022 --module nodenext --moduleResolution nodenext chain_200.ts
 # read "Instantiations:" (deterministic) and "Check time:" (noisy)
 ```
 
+Use `./node_modules/.bin/tsc`, not `npx tsc` — `npx` resolves to an unrelated placeholder
+package and prints "This is not the tsc command you are looking for".
+
 Ablation knobs used above: with/without factory dep destructuring ("deref"/"noderef");
-with/without the `keyof` duplicate-guard; with/without the `Factory<CR>` constraint; and
-composition layouts (m modules of N/m combined via `merge`).
+with/without the `keyof` duplicate-guard; with/without the `Factory<CR>` constraint; layout
+(one chain vs _m_ modules); and combinator (`compose`, chained `merge`, `extend` fold).

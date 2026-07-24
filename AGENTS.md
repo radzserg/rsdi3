@@ -65,11 +65,11 @@ Because of that intersection, a dependency called `get` would shadow the `get` m
 - **Compile time** — `DenyInputKeys` / `StringLiteral` in `types.ts` reject non-literal and colliding names.
 - **Runtime** — the `containerMethods` `Set` at the top of `DIContainer.ts` throws `ForbiddenNameError`.
 
-Adding a public method to the class means adding its name to that `Set`.
+Adding a public **instance** method to the class means adding its name to that `Set`. Static members (`DIContainer.compose`) are exempt — they never live on the instance, so a dependency cannot shadow them.
 
 ### Mutation is real; immutability is only in the types
 
-`add`, `update`, and `merge` all mutate `this` and return it re-cast. Despite the JSDoc on `merge` saying it returns a new container, it does not — it writes into `this.resolvers` and returns `this`. `clone()` is the only method that produces a genuinely separate instance.
+`add`, `update`, and `merge` all mutate `this` and return it re-cast — `merge` writes into `this.resolvers` and returns `this`. `clone()` and the static `DIContainer.compose()` are the only ways to get a genuinely separate instance; `compose` builds a fresh container and merges each input into it, leaving the inputs untouched.
 
 `clone()` works through `ClonedDiContainer`, a non-exported subclass at the bottom of `DIContainer.ts`. It exists purely to provide a constructor that seeds resolvers, because the public `DIContainer` constructor deliberately takes no arguments. `setResolvers` is `protected` for the same reason and throws if resolvers already exist.
 
@@ -107,6 +107,8 @@ Factories receive `this.context`, a `Proxy` built in the constructor that forwar
 - **Keep runtime dependencies at zero.** Never add a `dependencies` entry. Dev-only tooling goes in `devDependencies`.
 
 - **Resolvers are lazy and cached.** `add(name, factory)` registers a factory; it runs once on first `get`/property access, then the result is cached. `add` throws if the name already exists — use `update` to replace (mainly for test mocking). Reserved container method names (`add`, `get`, `merge`, …) cannot be used as dependency names.
+
+- **Composition is the answer to slow type-checking, and it is load-bearing.** A single `.add()` chain of N dependencies costs O(N²) to check (1600 deps ≈ 90 s); the same graph split into modules and combined with `DIContainer.compose()` checks in under a second. `MergedResolvers` in `types.ts` deliberately uses a union-to-intersection fold — a recursive tuple fold trips TS2589 at ~50 containers and silently degrades inference to `never`. Likewise `ResolversOf` must test the `DIContainer` class branch **before** the `IDIContainer` branch, since a class instance also matches `IDIContainer` structurally. Both constraints are covered by type tests; see `docs/type-performance-plan.md` for the measurements.
 
 ## Toolchain pins (don't casually bump)
 

@@ -37,6 +37,62 @@ describe('DIContainer typescript type resolution', () => {
     expectTypeOf(container.a).toEqualTypeOf<string>();
   });
 
+  test('merge several containers in a single call', () => {
+    const containerA = new DIContainer().add('a', () => 'string');
+    const containerB = new DIContainer().add('b', () => new Date());
+    const containerC = new DIContainer().add('c', () => 123);
+
+    const container = containerA.merge(containerB, containerC);
+
+    expectTypeOf(container.a).toEqualTypeOf<string>();
+    expectTypeOf(container.b).toEqualTypeOf<Date>();
+    expectTypeOf(container.c).toEqualTypeOf<number>();
+  });
+
+  test('compose containers', () => {
+    const containerA = new DIContainer().add('a', () => 'string');
+    const containerB = new DIContainer().add('b', () => new Date());
+    const containerC = new DIContainer().add('bar', () => new Bar());
+
+    const container = DIContainer.compose(containerA, containerB, containerC);
+
+    expectTypeOf(container.a).toEqualTypeOf<string>();
+    expectTypeOf(container.b).toEqualTypeOf<Date>();
+    expectTypeOf(container.bar).toEqualTypeOf<Bar>();
+  });
+
+  test('compose keeps the container chainable', () => {
+    const containerA = new DIContainer().add('a', () => '1');
+    const containerB = new DIContainer().add('bar', () => new Bar());
+
+    const container = DIContainer.compose(containerA, containerB).add(
+      'foo',
+      ({ a, bar }) => new Foo(a, bar),
+    );
+
+    expectTypeOf(container.a).toEqualTypeOf<string>();
+    expectTypeOf(container.bar).toEqualTypeOf<Bar>();
+    expectTypeOf(container.foo).toEqualTypeOf<Foo>();
+  });
+
+  test('compose accepts a container with no resolvers', () => {
+    const containerA = new DIContainer().add('a', () => 'string');
+
+    const container = DIContainer.compose(new DIContainer(), containerA);
+
+    expectTypeOf(container.a).toEqualTypeOf<string>();
+  });
+
+  test('compose keeps the declared dependencies of a module', () => {
+    const bars = new DIContainer().add('bar', () => new Bar());
+    const foos = new DIContainer<{ bar: Bar }>().add('foo', ({ bar }) => new Foo('foo', bar));
+
+    const container = DIContainer.compose(bars, foos);
+
+    expectTypeOf(container.bar).toEqualTypeOf<Bar>();
+    expectTypeOf(container.foo).toEqualTypeOf<Foo>();
+  });
+
   test('extend function', () => {
     const containerA = () => {
       return new DIContainer().add('a', () => '1').add('bar', () => new Bar());
