@@ -39,8 +39,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   public constructor() {
     this.context = new Proxy(this, {
       get(target, property) {
-        const propertyName =
-          property.toString() as keyof DIContainer<ContainerResolvers>;
+        const propertyName = property.toString() as keyof DIContainer<ContainerResolvers>;
 
         return target[propertyName];
       },
@@ -67,10 +66,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 
     this.setValue(name, resolver);
 
-    return this as IDIContainer<
-      ContainerResolvers & { [n in N]: ReturnType<R> }
-    > &
-      this;
+    return this as IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> & this;
   }
 
   /**
@@ -83,15 +79,10 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * The cloned container is a new instance but retains all the original resolvers.
    */
   public clone(): DIContainer<ContainerResolvers> {
-    const {
-      resolvedDependencies: newResolvedDependencies,
-      resolvers: newResolvers,
-    } = this.export();
+    const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } =
+      this.export();
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    const newContainer = new ClonedDiContainer(
-      newResolvers,
-      newResolvedDependencies,
-    );
+    const newContainer = new ClonedDiContainer(newResolvers, newResolvedDependencies);
 
     return newContainer as DIContainer<ContainerResolvers>;
   }
@@ -123,9 +114,9 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * };
    * @param diConfigurationFactory
    */
-  public extend<
-    E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer,
-  >(diConfigurationFactory: E): ReturnType<E> {
+  public extend<E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer>(
+    diConfigurationFactory: E,
+  ): ReturnType<E> {
     return diConfigurationFactory(
       this as unknown as IDIContainer<ContainerResolvers>,
     ) as ReturnType<E>;
@@ -165,10 +156,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   }
 
   public hasResolvedDependency(name: string): boolean {
-    return Object.prototype.hasOwnProperty.call(
-      this.resolvedDependencies,
-      name,
-    );
+    return Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name);
   }
 
   /**
@@ -178,10 +166,8 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   public merge<OtherContainerResolvers extends ResolvedDependencies>(
     otherContainer: DIContainer<OtherContainerResolvers>,
   ): IDIContainer<ContainerResolvers & OtherContainerResolvers> {
-    const {
-      resolvedDependencies: newResolvedDependencies,
-      resolvers: newResolvers,
-    } = otherContainer.export();
+    const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } =
+      otherContainer.export();
 
     const resolvers = {
       ...this.resolvers,
@@ -201,9 +187,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       this.addContainerProperty(property);
     }
 
-    return this as unknown as IDIContainer<
-      ContainerResolvers & OtherContainerResolvers
-    >;
+    return this as unknown as IDIContainer<ContainerResolvers & OtherContainerResolvers>;
   }
 
   /**
@@ -215,10 +199,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * @param name
    * @param resolver
    */
-  public update<
-    N extends keyof ContainerResolvers,
-    R extends Factory<ContainerResolvers>,
-  >(
+  public update<N extends keyof ContainerResolvers, R extends Factory<ContainerResolvers>>(
     name: StringLiteral<N>,
     resolver: R,
   ): IDIContainer<
@@ -259,9 +240,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     },
   ) {
     if (Object.keys(this.resolvers).length !== 0) {
-      throw new Error(
-        'Cannot set resolved dependencies after resolvers are defined',
-      );
+      throw new Error('Cannot set resolved dependencies after resolvers are defined');
     }
 
     // @ts-expect-error - we are setting resolvers

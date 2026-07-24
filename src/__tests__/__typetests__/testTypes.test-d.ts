@@ -21,9 +21,7 @@ describe('DIContainer typescript type resolution', () => {
   });
 
   test('it overrides the type', () => {
-    const container = new DIContainer()
-      .add('a', () => 'string')
-      .update('a', () => new Date());
+    const container = new DIContainer().add('a', () => 'string').update('a', () => new Date());
 
     expectTypeOf(container.a).toEqualTypeOf<Date>();
     expectTypeOf(container.a).not.toEqualTypeOf<string>();

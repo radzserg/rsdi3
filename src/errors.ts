@@ -1,8 +1,6 @@
 export class DenyOverrideDependencyError extends Error {
   constructor(name: string) {
-    super(
-      `Dependency resolver with name ${name} is already defined, use update method instead`,
-    );
+    super(`Dependency resolver with name ${name} is already defined, use update method instead`);
   }
 }
 

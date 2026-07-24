@@ -4,9 +4,7 @@ import { describe, expect, test } from 'vitest';
 
 describe('DIContainer merge containers', () => {
   test('merge empty container', () => {
-    const containerA = new DIContainer()
-      .add('a', () => '1')
-      .add('bar', () => new Bar());
+    const containerA = new DIContainer().add('a', () => '1').add('bar', () => new Bar());
     const finalContainer = containerA.merge(new DIContainer());
 
     expect(finalContainer.a).toEqual('1');
@@ -14,13 +12,9 @@ describe('DIContainer merge containers', () => {
   });
 
   test('merge 2 containers', () => {
-    const containerA = new DIContainer()
-      .add('a', () => '1')
-      .add('bar', () => new Bar());
+    const containerA = new DIContainer().add('a', () => '1').add('bar', () => new Bar());
 
-    const containerB = new DIContainer()
-      .add('b', () => 'b')
-      .add('buzz', () => new Buzz('buzz'));
+    const containerB = new DIContainer().add('b', () => 'b').add('buzz', () => new Buzz('buzz'));
 
     const finalContainer = containerA.merge(containerB);
 
