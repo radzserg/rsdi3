@@ -21,17 +21,18 @@ Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI co
 
 ## Motivation
 
-Most DI libraries rely on reflect-metadata and decorators to auto-wire dependencies. But this tightly couples 
+Most DI libraries rely on reflect-metadata and decorators to auto-wire dependencies. But this tightly couples
 your business logic to a framework — and adds complexity:
 
 ```typescript
 @injectable()
 class Foo {
-  constructor(@inject("Database") private database?: Database) {}
+  constructor(@inject('Database') private database?: Database) {}
 }
-// Notice how in order to allow the use of the empty constructor new Foo(), 
+// Notice how in order to allow the use of the empty constructor new Foo(),
 // we need to make the parameters optional, e.g. database?: Database.
 ```
+
 Why should your core logic even know it's injectable?
 
 RSDI avoids this by using explicit factory functions — keeping your code clean, framework-agnostic, and easy to test.
@@ -57,7 +58,7 @@ yarn add rsdi
 ```
 
 ```typescript
-import { DIContainer } from "rsdi";
+import { DIContainer } from 'rsdi';
 ```
 
 ## Best Use Cases
@@ -77,12 +78,13 @@ Use `RSDI` when your app grows in complexity:
 `RSDI` works best when you organize your app as a dependency tree.
 
 A typical backend app might have:
+
 - Controllers (REST or GraphQL)
 - Domain managers (use-cases, handlers)
 - Repositories (DB access)
 - Infrastructure (DB pools, loggers)
 
-![architecture](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_architecture.jpg "RSDI Architecture")
+![architecture](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_architecture.jpg 'RSDI Architecture')
 
 Set up your DI container at the app entry point — from there, all other parts can pull in what they need.
 
@@ -92,9 +94,9 @@ Set up your DI container at the app entry point — from there, all other parts 
 
 ```typescript
 const container = new DIContainer()
-    .add("a", () => "name1")
-    .add("bar", () => new Bar())
-    .add("foo", ({ a, bar}) => new Foo(a, bar));
+  .add('a', () => 'name1')
+  .add('bar', () => new Bar())
+  .add('foo', ({ a, bar }) => new Foo(a, bar));
 
 const { foo } = container; // alternatively  container.get("foo");
 ```
@@ -104,10 +106,7 @@ const { foo } = container; // alternatively  container.get("foo");
 ```typescript
 // sample web application components
 
-export function UserController(
-  userRegistrator: UserRegistrator,
-  userRepository: UserRepository,
-) {
+export function UserController(userRegistrator: UserRegistrator, userRepository: UserRepository) {
   return {
     async create(req: Request, res: Response) {
       const user = await userRegistrator.register(req.body);
@@ -132,40 +131,36 @@ export class UserRegistrator {
 export function MyDbProviderUserRepository(db: DbConnection): UserRepository {
   return {
     async saveNewUser(userAccountData: SignupData): Promise<void> {
-      await db("insert").insert(userAccountData);
+      await db('insert').insert(userAccountData);
     },
   };
 }
 
 export function buildDbConnection(): DbConnection {
-  return connectToDb({
-    /* db credentials */
-  });
+  return connectToDb({/* db credentials */});
 }
 ```
 
-Now let's configure the dependency injection container. Dependencies are only created when they're actually needed. 
+Now let's configure the dependency injection container. Dependencies are only created when they're actually needed.
 Your `configureDI` function will declare and connect everything in one place.
 
 ```typescript
-import { DIContainer } from "rsdi";
+import { DIContainer } from 'rsdi';
 
 export type AppDIContainer = ReturnType<typeof configureDI>;
 
 export default function configureDI() {
   return new DIContainer()
-    .add("dbConnection", () => buildDbConnection())
-    .add("userRepository", ({ dbConnection }) =>
-      MyDbProviderUserRepository(dbConnection),
-    )
-    .add("userRegistrator", ({ userRepository }) => new UserRegistrator(userRepository))
-    .add("userController", ({ userRepository, userRegistrator }) =>
+    .add('dbConnection', () => buildDbConnection())
+    .add('userRepository', ({ dbConnection }) => MyDbProviderUserRepository(dbConnection))
+    .add('userRegistrator', ({ userRepository }) => new UserRegistrator(userRepository))
+    .add('userController', ({ userRepository, userRegistrator }) =>
       UserController(userRegistrator, userRepository),
     );
 }
 ```
 
-When a resolver runs for the first time, its result is cached and reused for future calls. 
+When a resolver runs for the first time, its result is cached and reused for future calls.
 
 By default, you should always use `.add()` to register dependencies — it throws if the name already exists, which
 prevents accidental overwrites and keeps your setup predictable. If you need to replace an existing dependency —
@@ -175,22 +170,16 @@ usually in tests — use `.update()` instead:
 const container = configureDI();
 
 // override a real dependency with a stub in tests
-container.update("userRepository", () => new InMemoryUserRepository());
+container.update('userRepository', () => new InMemoryUserRepository());
 ```
 
 Let's map our web application routes to configured controllers
 
 ```typescript
 // configure Express router
-export default function configureRouter(
-  app: core.Express,
-  diContainer: AppDIContainer,
-) {
+export default function configureRouter(app: core.Express, diContainer: AppDIContainer) {
   const { userController } = diContainer;
-  app
-    .route("/users")
-    .get(userController.list)
-    .post(userController.create);
+  app.route('/users').get(userController.list).post(userController.create);
 }
 ```
 
@@ -205,24 +194,23 @@ configureRouter(app, diContainer);
 
 app.listen(8000);
 ```
- 
-🔗 Full example: [Express + RSDI](https://radzserg.medium.com/dependency-injection-in-express-application-dd85295694ab)
 
+🔗 Full example: [Express + RSDI](https://radzserg.medium.com/dependency-injection-in-express-application-dd85295694ab)
 
 ## Strict types
 
 `RSDI` uses TypeScript's type system to validate dependency trees at compile time, not runtime.
 
-![strict type](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_types.png "RSDI types")
+![strict type](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_types.png 'RSDI types')
 
 This gives you autocomplete and safety without decorators or metadata hacks.
 
 ## Advanced Usage
 
-As your application grows, it's a good idea to split your DI container setup into smaller, focused modules. This keeps 
+As your application grows, it's a good idea to split your DI container setup into smaller, focused modules. This keeps
 your codebase easier to navigate and maintain.
 
-A common pattern is to keep a main `diContainer.ts` file that configures the base container and delegate domain-specific 
+A common pattern is to keep a main `diContainer.ts` file that configures the base container and delegate domain-specific
 dependencies to separate files like `dataAccess.ts`, `validators.ts`, or `controllers.ts`.
 
 This modular structure improves testability, readability, and clarity on how dependencies are wired across your app.
@@ -253,8 +241,8 @@ export const addDataAccessDependencies = async () => {
   const longRunningPool = await createLongRunningDatabasePool();
 
   return new DIContainer()
-    .add("databasePool", () => pool)
-    .add("longRunningDatabasePool", () => longRunningPool);
+    .add('databasePool', () => pool)
+    .add('longRunningDatabasePool', () => longRunningPool);
 };
 ```
 
@@ -265,8 +253,8 @@ export type DIWithValidators = ReturnType<typeof addValidators>;
 
 export const addValidators = (container: DIWithPool) => {
   return container
-    .add("myValidatorA", ({ a, b, c }) => new MyValidatorA(a, b, c))
-    .add("myValidatorB", ({ a, b, c }) => new MyValidatorB(a, b, c));
+    .add('myValidatorA', ({ a, b, c }) => new MyValidatorA(a, b, c))
+    .add('myValidatorB', ({ a, b, c }) => new MyValidatorB(a, b, c));
 };
 ```
 
@@ -281,13 +269,9 @@ You can merge two containers to combine their resolvers and resolved values.
 - Already resolved values are reused — not re-created.
 
 ```ts
-const containerA = new DIContainer()
-  .add("a", () => "1")
-  .add("bar", () => new Bar());
+const containerA = new DIContainer().add('a', () => '1').add('bar', () => new Bar());
 
-const containerB = new DIContainer()
-  .add("b", () => "b")
-  .add("buzz", () => new Buzz("buzz"));
+const containerB = new DIContainer().add('b', () => 'b').add('buzz', () => new Buzz('buzz'));
 
 const finalContainer = containerA.merge(containerB);
 
@@ -307,9 +291,9 @@ This is useful for creating isolated execution contexts while preserving the bas
 
 ```ts
 const containerA = new DIContainer()
-  .add("a", () => "1")
-  .add("bar", () => new Bar())
-  .add("buzz", () => new Buzz("buzz"));
+  .add('a', () => '1')
+  .add('bar', () => new Bar())
+  .add('buzz', () => new Buzz('buzz'));
 
 const containerB = containerA.clone();
 
@@ -330,11 +314,11 @@ console.log(containerB.buzz.name); // "buzz"
   `.add()`, it expects the name to already exist.
 
 ```typescript
-const container = new DIContainer().add("bar", () => new Bar());
+const container = new DIContainer().add('bar', () => new Bar());
 
-container.has("bar"); // true
-container.hasResolvedDependency("bar"); // false — not resolved yet
+container.has('bar'); // true
+container.hasResolvedDependency('bar'); // false — not resolved yet
 
-container.get("bar");
-container.hasResolvedDependency("bar"); // true — now cached
+container.get('bar');
+container.hasResolvedDependency('bar'); // true — now cached
 ```

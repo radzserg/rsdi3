@@ -12,15 +12,17 @@ The library is **ESM-only** (`"type": "module"`) and ships only compiled output 
 
 Use **pnpm** (pinned via `packageManager`; do not use npm/yarn).
 
-| Task | Command |
-| --- | --- |
-| Install | `pnpm install` |
-| Build (emit `dist/`) | `pnpm build` (runs `tsc`) |
-| Test (unit + types) | `pnpm test` (`vitest --run --typecheck`) |
-| Lint | `npx eslint` |
-| Lint + autofix | `npx eslint --fix` |
+| Task                 | Command                                  |
+| -------------------- | ---------------------------------------- |
+| Install              | `pnpm install`                           |
+| Build (emit `dist/`) | `pnpm build` (runs `tsc`)                |
+| Test (unit + types)  | `pnpm test` (`vitest --run --typecheck`) |
+| Lint (check)         | `pnpm lint`                              |
+| Format + autofix     | `pnpm format`                            |
 
-There is no separate typecheck script — `pnpm test` runs both runtime tests and type tests in one pass. Always run `pnpm build`, `pnpm test`, and `npx eslint` before considering a change done; CI (`.github/workflows/lint.yml`) runs `tsc`, `eslint`, then `pnpm test`.
+`pnpm lint` runs `oxfmt --check` then `oxlint --type-aware --type-check`; `pnpm format` runs the same two tools in write/`--fix` mode.
+
+There is no separate typecheck script — `pnpm test` runs both runtime tests and type tests in one pass. Always run `pnpm build`, `pnpm test`, and `pnpm lint` before considering a change done; CI (`.github/workflows/lint.yml`) runs `tsc`, `pnpm lint`, then `pnpm test`.
 
 ## Source layout
 
@@ -38,7 +40,7 @@ src/
 
 ## Conventions & gotchas (read before editing)
 
-- **Single quotes, canonical style.** ESLint uses `eslint-config-canonical` (flat config in `eslint.config.ts`) with a `prettier/prettier` rule that enforces **single quotes** and specific wrapping. Do **not** reformat with double quotes — it produces dozens of lint errors. If in doubt, run `npx eslint --fix`. The pre-commit hook (`lint-staged`) runs `eslint --fix` on staged `src/**/*.ts`, so non-conforming formatting gets silently rewritten on commit.
+- **Single quotes, canonical style.** Formatting is owned by `oxfmt` (`.oxfmtrc.json`: single quotes, 2-space indent, 100-col print width, trailing commas); lint rules come from `oxlint-config-canonical` via `oxlint.config.ts`. Do **not** reformat with double quotes. If in doubt, run `pnpm format`. The pre-commit hook (`lint-staged`) runs `oxfmt` + `oxlint --fix` on staged `*.{ts,json}`, so non-conforming formatting gets silently rewritten on commit.
 
 - **Do NOT use `Object.hasOwn`.** It requires Node 16.9+. This package targets broad compatibility (`engines.node >=14`, ESM-only), so use `Object.prototype.hasOwnProperty.call(obj, key)` instead. There is a comment at `DIContainer.has()` explaining this — don't "modernize" it away.
 
@@ -50,7 +52,7 @@ src/
 
 ## Toolchain pins (don't casually bump)
 
-- **ESLint stays on v9, TypeScript on v6.** `eslint-config-canonical` peers on eslint 9 and its transitive plugins break on eslint 10 / TS 7. Bumping either major requires dropping or replacing canonical first.
+- **Linting is oxlint-only — no ESLint.** `oxlint` + `oxfmt` + `oxlint-config-canonical` replaced the ESLint/prettier stack; type-aware rules need `oxlint-tsgolint` installed (it is a devDependency, invoked via `--type-aware --type-check`).
 - **Vitest is pinned exactly** (no `^`) because `--typecheck` is still flagged experimental.
 - **pnpm settings live in `pnpm-workspace.yaml`**, not the `pnpm` field in `package.json` (pnpm 11 no longer reads that field). Build scripts are approved via `allowBuilds`.
 - pnpm 11 enforces a **supply-chain `minimumReleaseAge` policy**: very freshly published versions can be rejected at install. If an install fails on a just-released package, pin to a slightly older version rather than disabling the policy.

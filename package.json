@@ -2,26 +2,18 @@
   "name": "rsdi",
   "version": "3.1.1",
   "description": "TypeScript dependency injection container. Strong types without decorators.",
-  "scripts": {
-    "build": "tsc",
-    "prepublishOnly": "pnpm build",
-    "test": "vitest --run --typecheck",
-    "prepare": "husky"
-  },
   "keywords": [
-    "dependency injection",
+    "container",
     "dependency",
+    "dependency injection",
     "injection",
     "ioc",
-    "container",
     "javascript",
     "typescript"
   ],
-  "lint-staged": {
-    "src/**/*.ts": [
-      "eslint --fix"
-    ]
-  },
+  "homepage": "https://github.com/radzserg/rsdi3",
+  "license": "Apache-2.0",
+  "author": "Sergey Radzishevskii <radzserg@gmail.com>",
   "files": [
     "dist/**",
     "!dist/**/__tests__/**"
@@ -29,23 +21,32 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "homepage": "https://github.com/radzserg/rsdi3",
-  "author": "Sergey Radzishevskii <radzserg@gmail.com>",
-  "license": "Apache-2.0",
-  "engines": {
-    "node": ">=14"
+  "scripts": {
+    "build": "tsc",
+    "format": "oxfmt --threads=1 && oxlint --type-aware --type-check --quiet --fix",
+    "lint": "oxfmt --threads=1 --check && oxlint --type-aware --type-check --quiet --format unix",
+    "prepublishOnly": "pnpm build",
+    "test": "vitest --run --typecheck",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
-    "@typescript-eslint/utils": "^8.65.0",
-    "eslint": "^9.39.5",
-    "eslint-config-canonical": "^47.4.2",
-    "globals": "^17.7.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.1.1",
+    "oxfmt": "^0.60.0",
+    "oxlint": "^1.75.0",
+    "oxlint-config-canonical": "^1.1.2",
+    "oxlint-tsgolint": "^7.0.2001",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.65.0",
     "vitest": "4.1.10"
+  },
+  "lint-staged": {
+    "*.{ts,json}": [
+      "oxfmt",
+      "oxlint --type-aware --type-check --fix"
+    ]
+  },
+  "engines": {
+    "node": ">=14"
   },
   "packageManager": "pnpm@11.17.0+sha512.cca3cea332ad254bb84145f966d19f4879615210346fc92c79a047f23a0d7b3cca3c3792f0076ba1f1831d277efbcf0a9119b31a9a60eca7fb3d6231f331ef72"
 }

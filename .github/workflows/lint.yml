@@ -21,17 +21,17 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v7
         with:
-          node-version-file: ".nvmrc"
-          cache: "pnpm"
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install
 
-      - name: Lint with ESLint
+      - name: Typecheck
         run: npx tsc
 
-      - name: Lint with ESLint
-        run: npx eslint
+      - name: Lint with oxfmt and oxlint
+        run: pnpm lint
 
       - name: Test
         run: pnpm test

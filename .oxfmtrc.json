@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": ["**/node_modules/**", "**/dist/**"],
+  "singleQuote": true,
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "jsxSingleQuote": true,
+  "useTabs": false,
+  "arrowParens": "always",
+  "bracketSameLine": false,
+  "bracketSpacing": true,
+  "embeddedLanguageFormatting": "auto",
+  "endOfLine": "lf",
+  "experimentalSortImports": {
+    "groups": [],
+    "ignoreCase": true,
+    "maxLineLength": 100,
+    "newlinesBetween": false,
+    "type": "natural"
+  },
+  "insertFinalNewline": true,
+  "objectWrap": "preserve",
+  "printWidth": 100,
+  "quoteProps": "as-needed",
+  "semi": true,
+  "singleAttributePerLine": true
+}
