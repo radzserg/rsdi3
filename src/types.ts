@@ -2,16 +2,17 @@ import { type DIContainer } from './DIContainer.js';
 
 export type DenyInputKeys<T, Disallowed> = T & (T extends Disallowed ? never : T);
 
-export type Factory<ContainerResolvers extends ResolvedDependencies> = (
-  resolvers: ContainerResolvers,
-) => ResolvedDependencyValue;
+export type Factory<
+  ContainerResolvers extends ResolvedDependencies,
+  Value = ResolvedDependencyValue,
+> = (resolvers: ContainerResolvers) => Value;
 
 export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
   ContainerResolvers & {
-    add: <N extends string, R extends Factory<ContainerResolvers>>(
+    add: <N extends string, V>(
       name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
-      resolver: R,
-    ) => IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }>;
+      resolver: Factory<ContainerResolvers, V>,
+    ) => IDIContainer<ContainerResolvers & { [n in N]: V }>;
     clone: () => IDIContainer<ContainerResolvers>;
     extend: <E extends (container: IDIContainer<ContainerResolvers>) => IDIContainer>(
       f: E,
@@ -22,12 +23,12 @@ export type IDIContainer<ContainerResolvers extends ResolvedDependencies = {}> =
     merge: <OtherContainerResolvers extends ResolvedDependencies>(
       container: DIContainer<OtherContainerResolvers> | IDIContainer<OtherContainerResolvers>,
     ) => IDIContainer<ContainerResolvers & OtherContainerResolvers>;
-    update: <N extends keyof ContainerResolvers, R extends Factory<ContainerResolvers>>(
+    update: <N extends keyof ContainerResolvers, V>(
       name: StringLiteral<N>,
-      resolver: R,
+      resolver: Factory<ContainerResolvers, V>,
     ) => IDIContainer<
       {
-        [n in N]: ReturnType<R>;
+        [n in N]: V;
       } & { [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P] }
     >;
   };

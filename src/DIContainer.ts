@@ -52,10 +52,10 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * @param name
    * @param resolver
    */
-  public add<N extends string, R extends Factory<ContainerResolvers>>(
+  public add<N extends string, V>(
     name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
-    resolver: R,
-  ): IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> {
+    resolver: Factory<ContainerResolvers, V>,
+  ): IDIContainer<ContainerResolvers & { [n in N]: V }> {
     if (containerMethods.has(name)) {
       throw new ForbiddenNameError(name);
     }
@@ -66,7 +66,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 
     this.setValue(name, resolver);
 
-    return this as IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> & this;
+    return this as unknown as IDIContainer<ContainerResolvers & { [n in N]: V }>;
   }
 
   /**
@@ -196,12 +196,12 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * @param name
    * @param resolver
    */
-  public update<N extends keyof ContainerResolvers, R extends Factory<ContainerResolvers>>(
+  public update<N extends keyof ContainerResolvers, V>(
     name: StringLiteral<N>,
-    resolver: R,
+    resolver: Factory<ContainerResolvers, V>,
   ): IDIContainer<
     {
-      [n in N]: ReturnType<R>;
+      [n in N]: V;
     } & {
       [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
     }
@@ -222,12 +222,11 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 
     return this as unknown as IDIContainer<
       {
-        [n in N]: ReturnType<R>;
+        [n in N]: V;
       } & {
         [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
       }
-    > &
-      this;
+    >;
   }
 
   protected setResolvers<CR extends ResolvedDependencies>(
