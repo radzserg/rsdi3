@@ -1,7 +1,7 @@
 # RSDI - Simple & Strong-Type Dependency Injection Container
 
 [![npm version](https://img.shields.io/npm/v/rsdi.svg)](https://www.npmjs.com/package/rsdi)
-[![CI](https://github.com/radzserg/rsdi3/actions/workflows/lint.yml/badge.svg)](https://github.com/radzserg/rsdi3/actions/workflows/lint.yml)
+[![CI](https://github.com/radzserg/rsdi3/actions/workflows/ci.yml/badge.svg)](https://github.com/radzserg/rsdi3/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/rsdi.svg)](./LICENSE)
 
 Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI container with full TypeScript support — no decorators or metadata required.

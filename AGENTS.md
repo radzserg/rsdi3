@@ -22,7 +22,7 @@ Use **pnpm** (pinned via `packageManager`; do not use npm/yarn).
 
 `pnpm lint` runs `oxfmt --check` then `oxlint --type-aware --type-check`; `pnpm format` runs the same two tools in write/`--fix` mode.
 
-There is no separate typecheck script — `pnpm test` runs both runtime tests and type tests in one pass. Always run `pnpm build`, `pnpm test`, and `pnpm lint` before considering a change done; CI (`.github/workflows/lint.yml`) runs `tsc`, `pnpm lint`, then `pnpm test`.
+There is no separate typecheck script — `pnpm test` runs both runtime tests and type tests in one pass. Always run `pnpm build`, `pnpm test`, and `pnpm lint` before considering a change done; CI (`.github/workflows/ci.yml`) runs `pnpm build` + `pnpm lint` in one job and `pnpm test` across a Node matrix in another, with an aggregate `CI` job as the single required status check.
 
 ## Source layout
 
@@ -53,6 +53,7 @@ src/
 ## Toolchain pins (don't casually bump)
 
 - **Linting is oxlint-only — no ESLint.** `oxlint` + `oxfmt` + `oxlint-config-canonical` replaced the ESLint/prettier stack; type-aware rules need `oxlint-tsgolint` installed (it is a devDependency, invoked via `--type-aware --type-check`).
+- **TypeScript is on v7** (the native compiler). `tsc` now ships as a platform-specific Go binary via optional deps, so the lockfile carries every platform's package — don't prune them. `pnpm peers check` reports an unmet `typescript` peer from `@typescript-eslint/utils`, pulled in transitively by `oxlint-config-canonical` → `eslint-plugin-perfectionist`; it is unused (oxlint implements those rules natively) and the warning is safe to ignore.
 - **Vitest is pinned exactly** (no `^`) because `--typecheck` is still flagged experimental.
 - **pnpm settings live in `pnpm-workspace.yaml`**, not the `pnpm` field in `package.json` (pnpm 11 no longer reads that field). Build scripts are approved via `allowBuilds`.
 - pnpm 11 enforces a **supply-chain `minimumReleaseAge` policy**: very freshly published versions can be rejected at install. If an install fails on a just-released package, pin to a slightly older version rather than disabling the policy.

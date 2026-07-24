@@ -36,13 +36,15 @@
     "oxlint": "^1.75.0",
     "oxlint-config-canonical": "^1.1.2",
     "oxlint-tsgolint": "^7.0.2001",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "4.1.10"
   },
   "lint-staged": {
-    "*.{ts,json}": [
-      "oxfmt",
-      "oxlint --type-aware --type-check --fix"
+    "*.{ts,json,md,yml,yaml}": [
+      "oxfmt --no-error-on-unmatched-pattern"
+    ],
+    "*.ts": [
+      "oxlint --type-aware --type-check --fix --no-error-on-unmatched-pattern"
     ]
   },
   "engines": {
