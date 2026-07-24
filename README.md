@@ -4,11 +4,16 @@ Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI co
 
 - [Motivation](#motivation)
 - [Features](#features)
+- [Installation](#installation)
 - [Best Use Cases](#best-use-cases)
 - [Architecture](#architecture)
 - [How to use](#how-to-use)
 - [Strict types](#strict-types)
 - [Advanced Usage](#advanced-usage)
+  - [Extend](#extend)
+  - [Merge](#merge)
+  - [Clone](#clone)
+  - [Other methods](#other-methods)
 
 ## Motivation
 
@@ -37,6 +42,20 @@ RSDI avoids this by using explicit factory functions — keeping your code clean
 - No runtime dependencies
 - Easy to mock and test
 
+## Installation
+
+```bash
+npm install rsdi
+# or
+pnpm add rsdi
+# or
+yarn add rsdi
+```
+
+```typescript
+import { DIContainer } from "rsdi";
+```
+
 ## Best Use Cases
 
 Use `RSDI` when your app grows in complexity:
@@ -63,7 +82,7 @@ A typical backend app might have:
 
 Set up your DI container at the app entry point — from there, all other parts can pull in what they need.
 
-# How to use
+## How to use
 
 ### Basic Example
 
@@ -90,7 +109,7 @@ export function UserController(
       const user = await userRegistrator.register(req.body);
       res.send(user);
     },
-    async list(req: Request) {
+    async list(req: Request, res: Response) {
       const users = await userRepository.findAll(req.body);
       res.send(users);
     },
@@ -109,7 +128,7 @@ export class UserRegistrator {
 export function MyDbProviderUserRepository(db: DbConnection): UserRepository {
   return {
     async saveNewUser(userAccountData: SignupData): Promise<void> {
-      await this.db("insert").insert(userAccountData);
+      await db("insert").insert(userAccountData);
     },
   };
 }
@@ -131,21 +150,29 @@ export type AppDIContainer = ReturnType<typeof configureDI>;
 
 export default function configureDI() {
   return new DIContainer()
-    .add("dbConnection", buildDbConnection())
+    .add("dbConnection", () => buildDbConnection())
     .add("userRepository", ({ dbConnection }) =>
       MyDbProviderUserRepository(dbConnection),
     )
     .add("userRegistrator", ({ userRepository }) => new UserRegistrator(userRepository))
-    .add("userController", ({ userRepository, userRegistrator}) =>
-      UserController(userRepository, userRegistrator),
+    .add("userController", ({ userRepository, userRegistrator }) =>
+      UserController(userRegistrator, userRepository),
     );
 }
 ```
 
 When a resolver runs for the first time, its result is cached and reused for future calls. 
 
-By default, you should always use .add() to register dependencies. If you need to replace an existing one — usually 
-in tests — you can use .update() instead. This avoids accidental overwrites and keeps your setup predictable.
+By default, you should always use `.add()` to register dependencies — it throws if the name already exists, which
+prevents accidental overwrites and keeps your setup predictable. If you need to replace an existing dependency —
+usually in tests — use `.update()` instead:
+
+```typescript
+const container = configureDI();
+
+// override a real dependency with a stub in tests
+container.update("userRepository", () => new InMemoryUserRepository());
+```
 
 Let's map our web application routes to configured controllers
 
@@ -155,11 +182,11 @@ export default function configureRouter(
   app: core.Express,
   diContainer: AppDIContainer,
 ) {
-  const { usersController } = diContainer;
+  const { userController } = diContainer;
   app
     .route("/users")
-    .get(usersController.list)
-    .post(usersController.create);
+    .get(userController.list)
+    .post(userController.create);
 }
 ```
 
@@ -285,4 +312,25 @@ const containerB = containerA.clone();
 console.log(containerB.a); // "1"
 console.log(containerB.bar instanceof Bar); // true
 console.log(containerB.buzz.name); // "buzz"
+```
+
+---
+
+### Other methods
+
+- **`.get(name)`** — resolve a dependency by name. Equivalent to property access (`container.foo`). Throws
+  `DependencyIsMissingError` if the name isn't registered.
+- **`.has(name)`** — returns `true` if a resolver is registered under `name` (whether or not it has been resolved yet).
+- **`.hasResolvedDependency(name)`** — returns `true` only if the dependency has already been resolved and cached.
+- **`.update(name, resolver)`** — replace an existing dependency's resolver (see [How to use](#how-to-use)). Unlike
+  `.add()`, it expects the name to already exist.
+
+```typescript
+const container = new DIContainer().add("bar", () => new Bar());
+
+container.has("bar"); // true
+container.hasResolvedDependency("bar"); // false — not resolved yet
+
+container.get("bar");
+container.hasResolvedDependency("bar"); // true — now cached
 ```
