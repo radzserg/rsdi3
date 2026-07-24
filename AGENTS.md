@@ -85,7 +85,20 @@ Factories receive `this.context`, a `Proxy` built in the constructor that forwar
 
 - **Single quotes, canonical style.** Formatting is owned by `oxfmt` (`.oxfmtrc.json`: single quotes, 2-space indent, 100-col print width, trailing commas); lint rules come from `oxlint-config-canonical` via `oxlint.config.ts`. Do **not** reformat with double quotes. If in doubt, run `pnpm format`. The pre-commit hook (`lint-staged`) runs `oxfmt` on staged `*.{ts,json,md,yml,yaml}` and `oxlint --fix` on staged `*.ts`, so non-conforming formatting gets silently rewritten on commit. Both commands carry `--no-error-on-unmatched-pattern`; without it, a commit touching only files one tool can't handle (JSON for oxlint, `pnpm-lock.yaml` for oxfmt) fails the hook with "no files found".
 
-- **Do NOT use `Object.hasOwn`.** It requires Node 16.9+. This package targets broad compatibility (`engines.node >=14`, ESM-only), so use `Object.prototype.hasOwnProperty.call(obj, key)` instead. There is a comment at `DIContainer.has()` explaining this — don't "modernize" it away. Note that nothing in CI actually verifies the Node 14 floor; the test matrix starts at 22.
+- **Two different Node versions, on purpose.** `engines.node >=16.9.0` is what the _published_ package needs at runtime; `devEngines.runtime >=22` and `.nvmrc` (26) are what _contributing_ needs. They are unrelated audiences, so the mismatch is correct — don't "fix" it by aligning them. `devEngines` is enforced by npm 11+ and pnpm 11 when installing this repo and ignored when the package is consumed as a dependency.
+
+  Its value is squeezed from three directions, and getting it wrong breaks installs in ways that look nothing like a version problem:
+  - **At or above what pnpm itself needs.** pnpm 11.17.0 declares `engines.node >=22.13`, and its launcher hard-exits (`ERROR: This version of pnpm requires at least Node.js v22.13`, exit 1) below that — so a lower `devEngines` would wave through a contributor who then cannot run a single repo command. Re-check this when bumping `packageManager`.
+  - **A subset of the range the native bindings declare.** oxfmt, oxlint, and rolldown ship their binaries as optional dependencies with `engines: ^20.19.0 || >=22.12.0`, and pnpm skips an optional dependency unless _every_ version in the declared range satisfies it. `>=22` looks harmless but admits 22.0–22.11, so pnpm silently drops the platform binding — 137 packages install instead of 140 — and every command dies with `Cannot find native binding` / `Cannot find module '@oxfmt/binding-linux-x64-gnu'`. A local install won't reveal it if `node_modules` already exists; reproduce with a clean install in a container.
+  - **At or below the lowest entry in the CI test matrix**, or the matrix's own `pnpm install` fails.
+
+  `>=22.13.0` satisfies all three today.
+
+- **The floor is 16.9.0 because of `Object.hasOwn`**, which `DIContainer` uses in four places and which landed in 16.9 — not 16.0. Because development happens on Node 26, nothing about day-to-day work would reveal a newer built-in sneaking in, so two guards exist:
+  - `tsconfig` pins `target` and `lib` to `ES2022`, the match for Node 16.9. A post-ES2022 API is then a compile error rather than a runtime failure at a consumer. Raising the floor means raising these together.
+  - The `min-node` CI job imports the built package under a `node:<floor>-alpine` container, with the tag derived from `engines.node` so the check can't drift from the declaration. It keeps every component the floor declares — `16.9.0`, not `16.9` — because a partial tag floats to the newest patch in that line and would quietly test above the floor. The script is `scripts/smoke-min-node.mjs`; keep it dependency-free, since it runs against nothing but the floor's built-ins.
+
+  This has gone wrong once already: 3.1.1 shipped `Object.hasOwn` with `engines` unset, and every `has()` call threw for anyone below 16.9.
 
 - **ESM-only, so relative imports carry the `.js` extension** even in `.ts` source (`./types.js`, not `./types`). `moduleResolution` is `NodeNext`.
 
@@ -108,6 +121,10 @@ Factories receive `this.context`, a `Proxy` built in the constructor that forwar
 - `prepublishOnly` runs `pnpm build`, so `dist/` is always fresh on publish.
 - `files` publishes `dist/**` but excludes `dist/**/__tests__/**` — compiled tests are not shipped.
 - License is **Apache-2.0** (matches the `LICENSE` file).
+
+- **The package is ESM-only and that is deliberate**, not a limitation — nothing in `src/` requires it (no `import.meta`, no top-level await). CommonJS consumers are not shut out: Node 20.19+ and 22.12+ resolve `require()` of an ESM package, so the effective floor for a CJS consumer is Node 20.19 even though `engines.node` says 16.9. TypeScript CJS consumers need `module: nodenext`; on `Node16` they get `TS1479`. Dual-publishing CJS has been considered and rejected — it doubles the build and invites the dual package hazard, where two loaded copies make `instanceof DIContainer` fail.
+
+- **`exports` condition order is significant.** `types` must stay before `default`, or TypeScript resolves the runtime entry and consumers lose every type. `oxfmt` preserves the order today, but nothing enforces it — if you reorder the block, re-check that a consumer on `moduleResolution: nodenext` still gets inference. The map also blocks deep imports (`rsdi/dist/…` now throws `ERR_PACKAGE_PATH_NOT_EXPORTED`), which is the point: `dist/` layout is not API. `main`/`types` stay alongside it for resolvers that predate `exports`.
 
 ## Git / PRs
 

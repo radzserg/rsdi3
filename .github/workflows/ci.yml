@@ -73,12 +73,50 @@ jobs:
       - name: Test
         run: pnpm test
 
+  # The matrix above can't reach `engines.node` — Vitest needs a far newer
+  # runtime than the floor — so without this job the floor is an unverified
+  # claim. This imports the built `dist/` the way a consumer would, on exactly
+  # the Node the package declares, catching a bad emit, a broken ESM specifier,
+  # or a built-in newer than the floor before a consumer does.
+  min-node:
+    name: Smoke test built package on minimum Node
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Import built package on the declared minimum Node
+        run: |
+          # Keep every component the floor declares: `node:16.9-alpine` floats to
+          # the newest 16.9.x, which would test above the floor and hide a break.
+          MIN=$(node -p "require('./package.json').engines.node.match(/[0-9]+(\.[0-9]+)*/)[0]")
+          echo "engines.node floor resolves to Node $MIN"
+          docker run --rm -v "$PWD":/app -w /app "node:$MIN-alpine" node scripts/smoke-min-node.mjs
+
   # Single stable status check to require in branch protection, so the matrix
   # can change without anyone having to update the repo settings.
   ci:
     name: CI
     if: always()
-    needs: [lint, test]
+    needs: [lint, test, min-node]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all jobs succeeded
