@@ -34,22 +34,17 @@
   "author": "Sergey Radzishevskii <radzserg@gmail.com>",
   "license": "ISC",
   "devDependencies": {
-    "@eslint/js": "^9.24.0",
-    "@typescript-eslint/utils": "^8.29.1",
-    "eslint": "^9.24.0",
-    "eslint-config-canonical": "^44.9.3",
-    "globals": "^16.0.0",
+    "@eslint/js": "^9.39.5",
+    "@typescript-eslint/utils": "^8.65.0",
+    "eslint": "^9.39.5",
+    "eslint-config-canonical": "^47.4.2",
+    "globals": "^17.7.0",
     "husky": "^9.1.7",
-    "lint-staged": "^15.5.0",
-    "tsd": "^0.31.2",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.29.1",
-    "vitest": "^3.1.1"
+    "lint-staged": "^17.1.1",
+    "tsd": "^0.33.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.10"
   },
-  "packageManager": "pnpm@10.6.3+sha512.bb45e34d50a9a76e858a95837301bfb6bd6d35aea2c5d52094fa497a467c43f5c440103ce2511e9e0a2f89c3d6071baac3358fc68ac6fb75e2ceb3d2736065e6",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
-  }
+  "packageManager": "pnpm@11.17.0+sha512.cca3cea332ad254bb84145f966d19f4879615210346fc92c79a047f23a0d7b3cca3c3792f0076ba1f1831d277efbcf0a9119b31a9a60eca7fb3d6231f331ef72"
 }
