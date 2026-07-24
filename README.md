@@ -267,6 +267,14 @@ export const addValidators = (container: DIWithPool) => {
 };
 ```
 
+> **On long chains, annotate the return type.** Deriving each module's input from the previous module's
+> output (`(c: ReturnType<typeof previousModule>) => …`) is tempting, but it keeps every module's type nested
+> inside the one before it, so instantiation depth accumulates down the whole chain and your build becomes
+> coupled to RSDI's internals. Past a handful of modules this shows up as `TS2589` or a container that
+> collapses to `never`. Give each module an explicit named return type — `(c: DIWithPool): DIWithValidators
+=> …` — so every boundary flattens the accumulated type. A [`SealedContainer`](#naming-your-container-type)
+> boundary every few modules gets most of the same benefit.
+
 ---
 
 ### Compose
@@ -309,6 +317,15 @@ TypeScript 7 on this repo's benchmark (1600 dependencies, no factory arguments):
 
 That is ~22× fewer instantiations and ~100× faster. If your editor feels sluggish in the file that wires your
 container, this is usually why.
+
+**Splitting alone is not the win — isolation is.** A module is cheap when it is checked against only the
+dependencies it declares it consumes. In a production app with ~340 dependencies, splitting a flat chain into
+`.extend()` modules that thread the whole accumulated container measured no better than the flat chain
+(3.41M → 3.48M instantiations); giving each leaf an explicit consumed-type seed and combining with `compose`
+made those leaves **~13× cheaper to check** (924.8 ms → 68.7 ms). Declare the seed as an explicit interface —
+`Pick<FullContainer, 'a' | 'b'>` forces TypeScript to normalise the entire accumulated map and couples the
+module to the whole graph. See the
+[AI agent integration guide](./docs/ai-agent-guide.md) for the full pattern.
 
 ---
 

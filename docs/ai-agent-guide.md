@@ -193,6 +193,71 @@ export const container = DIContainer.compose(repositories).extend(addValidators)
 Both patterns scale — measured at 800 dependencies, `compose` and `extend` are within the same order
 of magnitude of each other and ~10× cheaper than one flat chain.
 
+### What actually makes it cheap: isolation, not splitting
+
+This is the part that decides whether the restructuring pays off, and it is easy to get wrong.
+
+**A module is cheap when it is checked against only what it declares it consumes**, not when it
+merely lives in its own file. Splitting a flat chain into `.extend()` modules that thread the whole
+accumulated container through each step measures _no better than the flat chain_ — a production
+application with ~340 dependencies measured 3.41M instantiations flat and 3.48M after splitting that
+way. Giving each leaf an explicit consumed-type seed and combining with `compose` is what paid: the
+five leaf modules cost **68.7 ms** to check combined, versus **924.8 ms** as `extend` modules
+threading the accumulated type — **~13× cheaper**, because each leaf is checked against the handful
+of keys it declares instead of a ~300-key map.
+
+So: declare the seed.
+
+```ts
+// ✓ an explicit interface of exactly what this module consumes
+export const services = new DIContainer<{ userRepository: UserRepository; mailer: Mailer }>().add(
+  'userService',
+  ({ userRepository, mailer }) => new UserService(userRepository, mailer),
+);
+```
+
+```ts
+// ✗ Pick<> from the full container type — forces TypeScript to normalise the entire
+//   accumulated map just to select two keys, and couples the module to the whole graph
+export const services = new DIContainer<Pick<FullContainer, 'userRepository' | 'mailer'>>().add(
+  'userService',
+  ({ userRepository, mailer }) => new UserService(userRepository, mailer),
+);
+```
+
+The explicit interface was both faster and decoupled in the same measurement.
+
+### Don't chain `ReturnType<typeof previousModule>`
+
+For a long `.extend()` chain it is tempting to skip the boilerplate and let each module infer its
+input from the previous module's output:
+
+```ts
+// ✗ do not do this down a long chain
+import type { addRepositories } from './repositories.js';
+export const addServices = (c: ReturnType<typeof addRepositories>) => c.add(/* … */);
+```
+
+It looks better — no type to keep in sync, and the input cannot drift from the actual output. But it
+removes the boundary that keeps instantiation depth bounded: each module's type stays nested inside
+the previous one, so depth accumulates across the entire chain and your build becomes coupled to
+RSDI's internal instantiation depth. In the same application this turned a clean build into **208
+errors**, with the container collapsing to `never` and every `add` name reporting
+`parameter of type 'never'`.
+
+Give each module an explicit named return type instead — it collapses the accumulated type into a
+flat named boundary at every step:
+
+```ts
+// ✓ explicit named boundary
+export type DIWithRepositories = IDIContainer<{ userRepository: UserRepository }>;
+export const addRepositories = (c: IDIContainer<{ db: Db }>): DIWithRepositories =>
+  c.add('userRepository', ({ db }) => new UserRepository(db));
+```
+
+If the full boilerplate is too much, a `SealedContainer` boundary every few modules gets most of the
+benefit.
+
 ### Naming the container type
 
 `typeof container` and `ReturnType<typeof configureDI>` both expand in diagnostics, so a large
@@ -231,16 +296,19 @@ resolved _before_ it keeps the old instance it was constructed with.
 
 ## Decoding errors
 
-| Symptom                                                                 | Cause                                     | Fix                                         |
-| ----------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------- |
-| `Argument of type '"x"' is not assignable to parameter of type 'never'` | Name already registered, or not a literal | Use `update`, or make the name a literal    |
-| `Property 'x' does not exist on type 'IDIContainer<…>'`                 | Not registered, or module not composed in | Register it, or add its module to `compose` |
-| `Argument of type '{…}' is not assignable to … 'Factory<…>'`            | Passed a value instead of a factory       | Wrap it: `() => value`                      |
-| `ForbiddenNameError`                                                    | Used a reserved method name               | Rename the dependency                       |
-| `DenyOverrideDependencyError`                                           | `add` on an existing name                 | Use `update`                                |
-| `DependencyIsMissingError`                                              | `get`/`update` on an unknown name         | Register it first                           |
-| `TypeError: resolver is not a function`                                 | Registered a value, not a factory         | Wrap it: `() => value`                      |
-| Editor sluggish in the container file                                   | One long `.add()` chain (O(N²))           | Split into modules and `compose`            |
+| Symptom                                                                 | Cause                                                        | Fix                                                                                         |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `Argument of type '"x"' is not assignable to parameter of type 'never'` | Name already registered, or not a literal                    | Use `update`, or make the name a literal                                                    |
+| `Property 'x' does not exist on type 'IDIContainer<…>'`                 | Not registered, or module not composed in                    | Register it, or add its module to `compose`                                                 |
+| `Argument of type '{…}' is not assignable to … 'Factory<…>'`            | Passed a value instead of a factory                          | Wrap it: `() => value`                                                                      |
+| `ForbiddenNameError`                                                    | Used a reserved method name                                  | Rename the dependency                                                                       |
+| `DenyOverrideDependencyError`                                           | `add` on an existing name                                    | Use `update`                                                                                |
+| `DependencyIsMissingError`                                              | `get`/`update` on an unknown name                            | Register it first                                                                           |
+| `TypeError: resolver is not a function`                                 | Registered a value, not a factory                            | Wrap it: `() => value`                                                                      |
+| Editor sluggish in the container file                                   | One long `.add()` chain (O(N²))                              | Split into modules and `compose`                                                            |
+| `TS2589: Type instantiation is excessively deep`                        | Depth accumulated across a long chain                        | Give modules explicit named return types; stop chaining `ReturnType<typeof previousModule>` |
+| Every `add` name reports `parameter of type 'never'`                    | The container type collapsed, usually the same depth problem | Same fix — check the module boundaries first                                                |
+| Splitting into modules didn't speed anything up                         | Modules thread the whole accumulated type                    | Give each a declared consumed-type seed and `compose`                                       |
 
 ---
 
@@ -250,6 +318,9 @@ resolved _before_ it keeps the old instance it was constructed with.
 - [ ] No dependency uses a reserved name.
 - [ ] Async resources are awaited before the container is built.
 - [ ] More than ~40 dependencies → split into modules and `compose`.
+- [ ] Each module declares the dependencies it consumes as an explicit interface — not
+      `Pick<FullContainer, …>`, and not by inferring from the previous module with `ReturnType`.
+- [ ] Long `.extend()` chains give each module an explicit named return type.
 - [ ] The container is resolved at the composition root, not passed through the app.
 - [ ] `add` used for new names, `update` only for deliberate replacement.
 - [ ] The project type-checks (`tsc --noEmit`) — RSDI's guarantees are compile-time.

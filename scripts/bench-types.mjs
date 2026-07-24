@@ -45,6 +45,7 @@ const BUDGETS = {
   'chain-200': 330_000,
   'compose-400': 130_000,
   'compose-scale': 45_000,
+  'module-seeded-64': 48_000,
 };
 
 const EXACT = `type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;\n`;
@@ -62,6 +63,38 @@ const chainFixture = (n) => {
   s += `const container = c${n - 1};\n`;
   s += `export const exactValue: Exact<typeof container.k${n - 1}, { v: number }> = true;\n`;
   s += `export const exactGet: Exact<ReturnType<typeof container.get<'k0'>>, { v: number }> = true;\n`;
+  return s;
+};
+
+/**
+ * A single domain module chained on top of an already-large container — the shape real
+ * applications actually have, and the one that breaks first.
+ *
+ * The seed is the load-bearing part. Starting from an empty container understates the cost
+ * per `add`, because every candidate return type is evaluated against a map that is still
+ * small. A field report from a ~340-dependency application hit TS2589 in a module of 64
+ * `add` calls layered on ~300 existing keys; reproduced here, that shape errors at 64 while
+ * an empty-start chain of the same length is clean, and stays clean until ~200. Without this
+ * scenario a regression that breaks real code at 64 could pass `chain-200`.
+ */
+const seededModuleFixture = (adds, seed) => {
+  let s = `import { DIContainer } from '../../src/DIContainer.js';\n${EXACT}\n`;
+  s += `type Seed = {\n`;
+  for (let i = 0; i < seed; i++) {
+    s += `  s${i}: { v: number; name: string };\n`;
+  }
+
+  s += `};\n\nconst container = new DIContainer<Seed>()\n`;
+  for (let i = 0; i < adds; i++) {
+    s +=
+      i === 0
+        ? `  .add('n0', ({ s0 }) => ({ v: s0.v, name: 'n0' }))\n`
+        : `  .add('n${i}', ({ s${i % seed}, n${i - 1} }) => ` +
+          `({ v: s${i % seed}.v + n${i - 1}.v, name: 'n${i}' }))\n`;
+  }
+  s += `;\n`;
+  s += `export const exactAdded: Exact<typeof container.n${adds - 1}, { v: number; name: string }> = true;\n`;
+  s += `export const exactSeed: Exact<typeof container.s0, { v: number; name: string }> = true;\n`;
   return s;
 };
 
@@ -119,6 +152,11 @@ const SCENARIOS = [
     build: () => composeScaleFixture(60),
     name: 'compose-scale',
     what: '60 composed containers (depth-limiter guard)',
+  },
+  {
+    build: () => seededModuleFixture(64, 300),
+    name: 'module-seeded-64',
+    what: '64 add() calls on top of a 300-key container (real-module shape)',
   },
 ];
 

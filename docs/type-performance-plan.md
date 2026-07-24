@@ -109,6 +109,36 @@ N=800 as 20 modules costs **187K / 0.19s** — same order as `compose`, versus 1
 for the flat chain. Use `extend` when a module needs a previous module's types while it is
 being written; use `compose` for independently built modules.
 
+### Field report — a real ~340-dependency application
+
+Numbers contributed by a production TypeScript monorepo (TS 5.9.3, strict, NodeNext) that integrated
+this branch. These supersede the synthetic `extend` result above, and are the reason the guidance now
+says _isolation_, not _splitting_.
+
+| Container shape                                        | Instantiations |         Types |
+| ------------------------------------------------------ | -------------: | ------------: |
+| flat single chain (~340 `add` calls), published 3.0.4  |      3,489,505 |     1,268,004 |
+| flat single chain, this branch                         |      3,412,439 |     1,283,956 |
+| split into `.extend()` modules threading the full type |      3,482,677 |     1,296,179 |
+| `compose` + leaf seeds via `Pick<FullMap, …>`          |      3,412,208 |     1,216,240 |
+| **`compose` + explicit `{…}` leaf seeds**              |  **3,411,796** | **1,216,203** |
+
+Three findings worth keeping:
+
+1. **The upgrade is a clean −2.2%** on real code with dependency-reading factories, with no inference
+   regression — consistent with the ~1% predicted for the deref-heavy case in item 3.
+2. **Splitting alone does nothing.** `.extend()` modules that thread the accumulated container measured
+   _worse_ than the flat chain. The win is not the file boundary, it is checking a module against a
+   small declared surface: the five composed leaves cost **68.7 ms** combined versus **924.8 ms** as
+   `extend` modules — **~13×** — visible in `--generateTrace`, not in the instantiation total.
+3. **`Pick<FullMap, …>` as a leaf seed is a trap.** It normalises the entire ~300-key accumulated
+   intersection to select a few keys. Explicit `{ a: A; b: B }` interfaces were faster _and_ decoupled.
+
+They also report that dropping explicit module return annotations in favour of
+`ReturnType<typeof previousModule>` removes the per-module depth firewall: on a stricter `add` typing it
+went from 7 errors to **208**, with the container collapsing to `never`. Explicit named boundary types are
+the robust choice on long chains; this is now documented in the README and the agent guide.
+
 ### Cost decomposition (per-`add`, N=400, no-deref)
 
 | Variant                                       | Instantiations |            vs full |
@@ -142,6 +172,14 @@ constraint) only pay off when factories **don't** read their deps; real factorie
 - **Sealing/flattening the container type for consumer files** (item 4): consumers are already
   cheap (~2.6K instantiations per file, cached per program), and sealing costs ~3% _more_.
   Useful for readable error messages only — never as a performance fix.
+- **An eager mapped type for `add`'s return** —
+  `Add<T, N, V> = { [K in keyof T | N]: K extends N ? V : K extends keyof T ? T[K] : never }`
+  instead of the lazy `T & { [n in N]: V }`. It re-maps every accumulated key on **every** `add`, so
+  nested `Add<Add<Add<…>>>` re-evaluates the whole map per layer. Reproduced here: a module of **64**
+  `add` calls on a 300-key seed throws 15× TS2589 on both TS 7.0.2 and TS 5.9.3, while the shipped
+  lazy `&` is clean at 64, 100, and at a 500-key seed. Flatter hover text is not worth the depth
+  headroom; flatten at a named boundary (`SealedContainer`) instead. Guarded by the
+  `module-seeded-64` scenario.
 
 ---
 
@@ -251,11 +289,17 @@ version. `SealedContainer` and `ResolversOf` are now exported from the package e
 Three scenarios, each gated on a type-instantiation budget (~25% headroom over the measured value
 on TypeScript 7.0.2):
 
-| Scenario        | What it guards                               | Measured | Budget |
-| --------------- | -------------------------------------------- | -------: | -----: |
-| `chain-200`     | per-`add` constant factor on a flat chain    |     268K |   330K |
-| `compose-400`   | the `compose` path, 400 deps as 20 modules   |      97K |   130K |
-| `compose-scale` | 60 composed containers — depth-limiter guard |      35K |    45K |
+| Scenario           | What it guards                                           | Measured | Budget |
+| ------------------ | -------------------------------------------------------- | -------: | -----: |
+| `chain-200`        | per-`add` constant factor on a flat chain                |     268K |   330K |
+| `compose-400`      | the `compose` path, 400 deps as 20 modules               |      97K |   130K |
+| `compose-scale`    | 60 composed containers — depth-limiter guard             |      35K |    45K |
+| `module-seeded-64` | 64 `add` calls on a 300-key seed — the real-module shape |      38K |    48K |
+
+`module-seeded-64` was added after the field report. The seed is the load-bearing part: starting from
+an _empty_ container understates per-`add` cost, so an eager-mapped-type regression that breaks real
+code at 64 chained calls only surfaces around 200 from empty. Both scenarios catch it now, but only
+this one catches it at the size real modules reach.
 
 **Why this is not redundant with the type tests.** The `*.test-d.ts` assertions run at three or
 four dependencies. Both known failure modes are invisible at that size — verified by
