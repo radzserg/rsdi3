@@ -4,6 +4,7 @@
   "description": "TypeScript dependency injection container. Strong types without decorators.",
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "pnpm build",
     "test": "vitest --run && tsd",
     "prepare": "husky"
   },
