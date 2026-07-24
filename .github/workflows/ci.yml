@@ -105,7 +105,9 @@ jobs:
 
       - name: Import built package on the declared minimum Node
         run: |
-          MIN=$(node -p "require('./package.json').engines.node.match(/[0-9]+(\.[0-9]+)?/)[0]")
+          # Keep every component the floor declares: `node:16.9-alpine` floats to
+          # the newest 16.9.x, which would test above the floor and hide a break.
+          MIN=$(node -p "require('./package.json').engines.node.match(/[0-9]+(\.[0-9]+)*/)[0]")
           echo "engines.node floor resolves to Node $MIN"
           docker run --rm -v "$PWD":/app -w /app "node:$MIN-alpine" node scripts/smoke-min-node.mjs
 
