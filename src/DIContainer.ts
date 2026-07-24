@@ -149,14 +149,11 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * @param name
    */
   public has(name: string): boolean {
-    // Use `Object.prototype.hasOwnProperty.call` rather than `Object.hasOwn`:
-    // the latter needs Node 16.9+, and this package declares no minimum
-    // runtime, so the verbose idiom keeps it working on older Node/browsers.
-    return Object.prototype.hasOwnProperty.call(this.resolvers, name);
+    return Object.hasOwn(this.resolvers, name);
   }
 
   public hasResolvedDependency(name: string): boolean {
-    return Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name);
+    return Object.hasOwn(this.resolvedDependencies, name);
   }
 
   /**
@@ -218,7 +215,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     }
 
     this.setValue(name, resolver);
-    if (Object.prototype.hasOwnProperty.call(this.resolvedDependencies, name)) {
+    if (Object.hasOwn(this.resolvedDependencies, name)) {
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete this.resolvedDependencies[name];
     }
@@ -257,7 +254,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   private addContainerProperty(name: string) {
     // eslint-disable-next-line unicorn/no-this-assignment, @typescript-eslint/no-this-alias, consistent-this
     let updatedObject = this;
-    if (!Object.prototype.hasOwnProperty.call(this, name)) {
+    if (!Object.hasOwn(this, name)) {
       updatedObject = Object.defineProperty(this, name, {
         get() {
           return this.get(name);
