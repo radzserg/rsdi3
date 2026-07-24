@@ -131,8 +131,13 @@ Threading the container into business logic recreates the coupling DI is meant t
 **Split the graph into module files and combine them.** This is the recommended layout, and past a
 few dozen dependencies it is not optional — a single `.add()` chain costs **O(N²)** to type-check.
 Measured on TypeScript 7: 1600 dependencies in one chain takes **90 seconds** to check; the same
-graph as 80 modules combined with `compose` takes **0.9 seconds**. Aim for **20–40 dependencies per
-module**.
+graph as 80 modules combined with `compose` takes **0.9 seconds**.
+
+**Module size is not the lever — wiring the whole graph as one chain is.** A module of **64** `add`
+calls layered on a 300-key container type-checks comfortably (CI guards exactly that shape), and
+splitting it further barely pays: the same 64 dependencies cost 38.1K instantiations as one module
+and 36.3K split four ways, under 5%. So treat ~64 as a comfortable ceiling and choose module size
+for readability — long modules are harder to read long before they are hard to compile.
 
 ```ts
 // di/repositories.ts
@@ -317,7 +322,8 @@ resolved _before_ it keeps the old instance it was constructed with.
 - [ ] Every `add`/`update` second argument is a function.
 - [ ] No dependency uses a reserved name.
 - [ ] Async resources are awaited before the container is built.
-- [ ] More than ~40 dependencies → split into modules and `compose`.
+- [ ] The whole graph is not one `.add()` chain — it is split into modules and composed. Up to ~64
+      dependencies in a single module is fine; below that, size is a readability choice.
 - [ ] Each module declares the dependencies it consumes as an explicit interface — not
       `Pick<FullContainer, …>`, and not by inferring from the previous module with `ReturnType`.
 - [ ] Long `.extend()` chains give each module an explicit named return type.

@@ -99,8 +99,15 @@ Instantiations quadruple per doubling — textbook O(N²). No crash at any lengt
 At 1600 dependencies that is **~22× fewer instantiations and ~100× faster**. The win grows
 with N, because the flat chain is quadratic and the composed layout is not.
 
-Module _size_ matters more than module count: 20–40 dependencies per module is the sweet
-spot, and past that the returns flatten (m=40 vs m=80 at N=1600 differ by <25%).
+Module size matters only for modules built from an **empty** container, where total cost is
+roughly `N × size` — halving the size halves the quadratic part (m=40 vs m=80 at N=1600 differ
+by ~19%). For a module **seeded** with a large declared map the seed dominates instead, and
+splitting barely helps: the same 64 dependencies on a 300-key seed cost 38.1K instantiations as
+one module, 37.1K as two, 36.3K as four — under 5% across a 4× split.
+
+So ~64 `add` calls in one module is a comfortable ceiling rather than a warning sign, and
+`module-seeded-64` guards it. Below that, module size is a readability decision, not a
+performance one; the thing that actually costs is wiring the whole graph as a single chain.
 
 ### The `extend` pattern scales too (and keeps cross-module types)
 
