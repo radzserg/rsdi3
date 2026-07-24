@@ -41,7 +41,7 @@ one finding (the crash) did not survive the last one.
 | 2   | Guardrail the single-chain crash                                           | —                                 | —       | ➖ **Obsolete on TS 7** (no crash); item 1 covers it |
 | 3   | Constant-factor type cleanups (`add`/`update` signatures)                  | Low–Med                           | Low     | ✅ **Done**                                          |
 | 4   | Escape hatch for consumers (seal container behind a named type)            | Low (readability only)            | Low     | ✅ **Done** (premise disproved; shipped as DX only)  |
-| 5   | CI perf regression gate (benchmark harness)                                | Med (prevents regressions)        | Low     | ⬜ Not started                                       |
+| 5   | CI perf regression gate (benchmark harness)                                | Med (prevents regressions)        | Low     | ✅ **Done** (`pnpm bench:types`, CI `types-perf`)    |
 
 ---
 
@@ -244,18 +244,43 @@ version. `SealedContainer` and `ResolversOf` are now exported from the package e
   diagnostics when consumed from the built `dist/`.
 - Full gate green: `pnpm build`, `pnpm test` (82 tests + type tests), `pnpm lint`.
 
-### 5. CI perf regression gate ⬜
+### 5. CI perf regression gate ✅ **Done**
 
-Add a types-perf benchmark to CI (see appendix): generate an N-chain and assert
-instantiations/check-time under a threshold via `tsc --extendedDiagnostics`, alongside the
-existing `--typecheck` tests, so no future change silently reintroduces the blow-up.
+`scripts/bench-types.mjs`, wired into CI as the `types-perf` job and runnable locally with
+`pnpm bench:types`. Three scenarios, each gated on a type-instantiation budget (~25% headroom
+over the measured value on TypeScript 7.0.2):
+
+| Scenario        | What it guards                               | Measured | Budget |
+| --------------- | -------------------------------------------- | -------: | -----: |
+| `chain-200`     | per-`add` constant factor on a flat chain    |     268K |   330K |
+| `compose-400`   | the `compose` path, 400 deps as 20 modules   |      97K |   130K |
+| `compose-scale` | 60 composed containers — depth-limiter guard |      35K |    45K |
+
+**Why this is not redundant with the type tests.** The `*.test-d.ts` assertions run at three or
+four dependencies. Both known failure modes are invisible at that size — verified by
+reintroducing each one and running the full suite:
+
+| Reintroduced regression                     | `pnpm test`             | `pnpm bench:types`          |
+| ------------------------------------------- | ----------------------- | --------------------------- |
+| recursive tuple fold in `MergedResolvers`   | 82 passed, no errors ✅ | FAILED — TS2589 + `never` ✗ |
+| `Simplify` flatten on the `add` accumulator | 82 passed, no errors ✅ | FAILED — 507× TS2589 ✗      |
+
+Every fixture also asserts exact types via a compile-time `Exact<>` check, so the gate cannot be
+satisfied by making inference _worse_: a change degrading everything to `any` would lower the
+instantiation count but fail the assertions. The budget path was verified independently by
+lowering a budget below the measured value.
+
+Budgets are compiler-specific. A TypeScript upgrade moves the numbers — run the script, read the
+reported actuals, and re-baseline in the same commit as the upgrade.
 
 ---
 
 ## Appendix — reproducing the benchmark
 
-The harness used for this analysis is straightforward to regenerate (kept out of the repo to
-avoid shipping scratch tooling; item 5 would formalize it).
+The gated scenarios now live in `scripts/bench-types.mjs` (`pnpm bench:types`) — start there, and
+add a scenario to it rather than rebuilding a one-off harness. The notes below cover the ad-hoc
+exploration that produced the tables above: sweeping N, comparing layouts, and ablating individual
+pieces of the type machinery, none of which the committed script does.
 
 **Generator** — emit an N-length chain that imports the real container and destructures prior deps:
 

@@ -73,6 +73,36 @@ jobs:
       - name: Test
         run: pnpm test
 
+  # The type tests assert inference at three or four dependencies, which is far
+  # too small to notice the two ways this package's types fail: a per-dependency
+  # cost multiplying everyone's build time, and a depth-limiter trip that collapses
+  # inference to `never` past ~50 dependencies. Both pass the full test suite. This
+  # job checks the shapes big enough to expose them.
+  types-perf:
+    name: Type-checking budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check type-instantiation budgets
+        run: pnpm bench:types
+
   # The matrix above can't reach `engines.node` — Vitest needs a far newer
   # runtime than the floor — so without this job the floor is an unverified
   # claim. This imports the built `dist/` the way a consumer would, on exactly
@@ -116,7 +146,7 @@ jobs:
   ci:
     name: CI
     if: always()
-    needs: [lint, test, min-node]
+    needs: [lint, test, types-perf, min-node]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all jobs succeeded

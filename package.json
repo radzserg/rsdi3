@@ -28,6 +28,7 @@
     }
   },
   "scripts": {
+    "bench:types": "node scripts/bench-types.mjs",
     "build": "tsc",
     "format": "oxfmt --threads=1 && oxlint --type-aware --type-check --quiet --fix",
     "lint": "oxfmt --threads=1 --check && oxlint --type-aware --type-check --quiet --format unix",
