@@ -1,5 +1,9 @@
 # RSDI - Simple & Strong-Type Dependency Injection Container
 
+[![npm version](https://img.shields.io/npm/v/rsdi.svg)](https://www.npmjs.com/package/rsdi)
+[![CI](https://github.com/radzserg/rsdi3/actions/workflows/lint.yml/badge.svg)](https://github.com/radzserg/rsdi3/actions/workflows/lint.yml)
+[![license](https://img.shields.io/npm/l/rsdi.svg)](./LICENSE)
+
 Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI container with full TypeScript support — no decorators or metadata required.
 
 - [Motivation](#motivation)
@@ -28,7 +32,7 @@ class Foo {
 // Notice how in order to allow the use of the empty constructor new Foo(), 
 // we need to make the parameters optional, e.g. database?: Database.
 ```
-Why should your core logic even know it’s injectable?
+Why should your core logic even know it's injectable?
 
 RSDI avoids this by using explicit factory functions — keeping your code clean, framework-agnostic, and easy to test.
 
@@ -140,7 +144,7 @@ export function buildDbConnection(): DbConnection {
 }
 ```
 
-Now let’s configure the dependency injection container. Dependencies are only created when they’re actually needed. 
+Now let's configure the dependency injection container. Dependencies are only created when they're actually needed. 
 Your `configureDI` function will declare and connect everything in one place.
 
 ```typescript
@@ -190,7 +194,7 @@ export default function configureRouter(
 }
 ```
 
-Add `configureDI()` in your app’s entry point:
+Add `configureDI()` in your app's entry point:
 
 ```typescript
 // express.ts
@@ -207,7 +211,7 @@ app.listen(8000);
 
 ## Strict types
 
-`RSDI` uses TypeScript’s type system to validate dependency trees at compile time, not runtime.
+`RSDI` uses TypeScript's type system to validate dependency trees at compile time, not runtime.
 
 ![strict type](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_types.png "RSDI types")
 
@@ -215,7 +219,7 @@ This gives you autocomplete and safety without decorators or metadata hacks.
 
 ## Advanced Usage
 
-As your application grows, it’s a good idea to split your DI container setup into smaller, focused modules. This keeps 
+As your application grows, it's a good idea to split your DI container setup into smaller, focused modules. This keeps 
 your codebase easier to navigate and maintain.
 
 A common pattern is to keep a main `diContainer.ts` file that configures the base container and delegate domain-specific 
@@ -273,7 +277,7 @@ export const addValidators = (container: DIWithPool) => {
 You can merge two containers to combine their resolvers and resolved values.
 
 - Dependencies from both containers are preserved.
-- If both define the same key, the merging container’s value takes precedence.
+- If both define the same key, the merging container's value takes precedence.
 - Already resolved values are reused — not re-created.
 
 ```ts
