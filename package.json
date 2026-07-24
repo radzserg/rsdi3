@@ -47,6 +47,13 @@
       "oxlint --type-aware --type-check --fix --no-error-on-unmatched-pattern"
     ]
   },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "onFail": "error",
+      "version": ">=22"
+    }
+  },
   "engines": {
     "node": ">=16.9.0"
   },
