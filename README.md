@@ -1,7 +1,7 @@
 # RSDI - Simple & Strong-Type Dependency Injection Container
 
 [![npm version](https://img.shields.io/npm/v/rsdi.svg)](https://www.npmjs.com/package/rsdi)
-[![CI](https://github.com/radzserg/rsdi3/actions/workflows/ci.yml/badge.svg)](https://github.com/radzserg/rsdi3/actions/workflows/ci.yml)
+[![CI](https://github.com/radzserg/rsdi/actions/workflows/ci.yml/badge.svg)](https://github.com/radzserg/rsdi/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/rsdi.svg)](./LICENSE)
 
 Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI container with full TypeScript support — no decorators or metadata required.
@@ -93,7 +93,7 @@ A typical backend app might have:
 - Repositories (DB access)
 - Infrastructure (DB pools, loggers)
 
-![architecture](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_architecture.jpg 'RSDI Architecture')
+![architecture](https://github.com/radzserg/rsdi/raw/main/docs/RSDI_architecture.jpg 'RSDI Architecture')
 
 Set up your DI container at the app entry point — from there, all other parts can pull in what they need.
 
@@ -210,7 +210,7 @@ app.listen(8000);
 
 `RSDI` uses TypeScript's type system to validate dependency trees at compile time, not runtime.
 
-![strict type](https://github.com/radzserg/rsdi3/raw/main/docs/RSDI_types.png 'RSDI types')
+![strict type](https://github.com/radzserg/rsdi/raw/main/docs/RSDI_types.png 'RSDI types')
 
 This gives you autocomplete and safety without decorators or metadata hacks.
 

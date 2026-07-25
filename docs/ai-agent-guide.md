@@ -115,14 +115,14 @@ const connection = await createConnection(); // await first
 const container = new DIContainer().add('db', () => connection);
 ```
 
-See [async factory resolvers](https://github.com/radzserg/rsdi3/blob/main/docs/async_factory_resolver.md)
+See [async factory resolvers](https://github.com/radzserg/rsdi/blob/main/docs/async_factory_resolver.md)
 for the reasoning.
 
 ### 7. Don't pass the container through your application
 
 Resolve at the composition root (entry point, router setup) and hand components their dependencies.
 Threading the container into business logic recreates the coupling DI is meant to remove — see
-[DI container vs context](https://github.com/radzserg/rsdi3/blob/main/docs/context_vs_container.md).
+[DI container vs context](https://github.com/radzserg/rsdi/blob/main/docs/context_vs_container.md).
 
 ---
 
