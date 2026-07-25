@@ -12,8 +12,15 @@
     "typescript"
   ],
   "homepage": "https://github.com/radzserg/rsdi",
+  "bugs": {
+    "url": "https://github.com/radzserg/rsdi/issues"
+  },
   "license": "Apache-2.0",
   "author": "Sergey Radzishevskii <radzserg@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/radzserg/rsdi.git"
+  },
   "files": [
     "dist/**",
     "!dist/**/__tests__/**",

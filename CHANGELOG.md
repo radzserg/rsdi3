@@ -1,5 +1,10 @@
 # Changelog
 
+# 3.2.1
+
+Added `repository` and `bugs` metadata so the relative links in the README (including the AI agent
+guide) resolve correctly on npmjs.com. No code changes.
+
 # 3.2.0
 
 ## Added
