@@ -6,6 +6,11 @@
 
 Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI container with full TypeScript support — no decorators or metadata required.
 
+> **Using an AI coding agent?** Point it at
+> **[docs/ai-agent-guide.md](./docs/ai-agent-guide.md)** — a single-page integration guide covering
+> the API, the mistakes that don't compile, how to structure a large container, and how to decode
+> RSDI's error messages. Every example in it is compile- and runtime-verified.
+
 - [Motivation](#motivation)
 - [Features](#features)
 - [Installation](#installation)
@@ -15,9 +20,12 @@ Manage your dependencies with ease and safety. RSDI is a minimal, powerful DI co
 - [Strict types](#strict-types)
 - [Advanced Usage](#advanced-usage)
   - [Extend](#extend)
+  - [Compose](#compose)
   - [Merge](#merge)
   - [Clone](#clone)
+  - [Naming your container type](#naming-your-container-type)
   - [Other methods](#other-methods)
+- [Further reading](#further-reading)
 
 ## Motivation
 
@@ -46,6 +54,7 @@ RSDI avoids this by using explicit factory functions — keeping your code clean
 - Simple API
 - No runtime dependencies
 - Easy to mock and test
+- Scales to large graphs — [compose](#compose) independent modules instead of one long chain
 
 ## Installation
 
@@ -258,14 +267,80 @@ export const addValidators = (container: DIWithPool) => {
 };
 ```
 
+> **On long chains, annotate the return type.** Deriving each module's input from the previous module's
+> output (`(c: ReturnType<typeof previousModule>) => …`) is tempting, but it keeps every module's type nested
+> inside the one before it, so instantiation depth accumulates down the whole chain and your build becomes
+> coupled to RSDI's internals. Past a handful of modules this shows up as `TS2589` or a container that
+> collapses to `never`. Give each module an explicit named return type — `(c: DIWithPool): DIWithValidators
+=> …` — so every boundary flattens the accumulated type. A [`SealedContainer`](#naming-your-container-type)
+> boundary every few modules gets most of the same benefit.
+
+---
+
+### Compose
+
+`DIContainer.compose()` combines independently built containers into one new container. It is the recommended way to
+wire a large dependency graph, and it keeps the inputs untouched.
+
+```ts
+// repositories.ts
+export const repositories = new DIContainer().add('userRepository', () => new UserRepository());
+
+// services.ts — declare what this module expects the composed container to provide
+export const services = new DIContainer<{ userRepository: UserRepository }>().add(
+  'userService',
+  ({ userRepository }) => new UserService(userRepository),
+);
+
+// container.ts
+const container = DIContainer.compose(repositories, services);
+
+container.userService; // UserService — fully typed
+```
+
+Resolution stays lazy and happens against the composed container, so a factory may depend on names provided by any of
+the composed modules. Only the _types_ of a module are limited to what that module declares — annotate the module (as
+`services` does above) or use `.extend()` when you need another module's types to be visible while writing it.
+
+If several containers define the same name, the last one wins at runtime — including over a value an
+earlier container had already resolved. Be aware the _types_ intersect rather than overwrite, so the
+same name registered with two different types resolves to `never` instead of the later type. That
+surfaces the collision rather than hiding it; if a replacement is intentional, use `.update()`.
+
+#### Why compose instead of one long chain
+
+Each `.add()` widens the container type, so a single chain of N dependencies costs **O(N²)** to type-check. Splitting
+the graph into modules keeps each chain short, and the compiler only pays the quadratic within a module. Measured with
+TypeScript 7 on this repo's benchmark (1600 dependencies, no factory arguments):
+
+| Layout                         | Type instantiations | Check time |
+| ------------------------------ | ------------------: | ---------: |
+| one chain of 1600              |           7,815,223 |     90.2 s |
+| 80 modules of 20, then compose |             361,552 |      0.9 s |
+
+That is ~22× fewer instantiations and ~100× faster. If your editor feels sluggish in the file that wires your
+container, this is usually why.
+
+**Splitting alone is not the win — isolation is.** A module is cheap when it is checked against only the
+dependencies it declares it consumes. In a production app with ~340 dependencies, splitting a flat chain into
+`.extend()` modules that thread the whole accumulated container measured no better than the flat chain
+(3.41M → 3.48M instantiations); giving each leaf an explicit consumed-type seed and combining with `compose`
+made those leaves **~13× cheaper to check** (924.8 ms → 68.7 ms). Declare the seed as an explicit interface —
+`Pick<FullContainer, 'a' | 'b'>` forces TypeScript to normalise the entire accumulated map and couples the
+module to the whole graph. See the
+[AI agent integration guide](./docs/ai-agent-guide.md) for the full pattern.
+
 ---
 
 ### Merge
 
-You can merge two containers to combine their resolvers and resolved values.
+You can merge containers to combine their resolvers and resolved values. Unlike `compose`, `merge` mutates and returns
+the container it is called on.
 
-- Dependencies from both containers are preserved.
-- If both define the same key, the merging container's value takes precedence.
+- Dependencies from all containers are preserved.
+- If several define the same key, the last one takes precedence at runtime (and any value the
+  replaced resolver had already produced is evicted). Types intersect, so a key defined twice with
+  different types becomes `never`.
 - Already resolved values are reused — not re-created.
 
 ```ts
@@ -279,6 +354,12 @@ console.log(finalContainer.a); // "1"
 console.log(finalContainer.b); // "b"
 console.log(finalContainer.bar instanceof Bar); // true
 console.log(finalContainer.buzz.name); // "buzz"
+```
+
+`merge` accepts several containers at once, which avoids a long chain of merges:
+
+```ts
+const finalContainer = base.merge(repositories, services, controllers);
 ```
 
 ---
@@ -304,6 +385,38 @@ console.log(containerB.buzz.name); // "buzz"
 
 ---
 
+### Naming your container type
+
+Consumer files usually want to refer to the built container by name:
+
+```ts
+export type AppDIContainer = ReturnType<typeof configureDI>;
+```
+
+That works, but TypeScript still expands it in diagnostics, so a container with a few hundred dependencies produces
+errors and hovers like `IDIContainer<{ a: string; } & { b: number; } & … }>`. Wrapping it in `SealedContainer` creates a
+fresh alias that TypeScript prints by name instead:
+
+```ts
+import { type SealedContainer } from 'rsdi';
+
+export type AppDIContainer = SealedContainer<ReturnType<typeof configureDI>>;
+
+// error messages and hovers now say `AppDIContainer`
+export function configureRouter(app: core.Express, container: AppDIContainer) {
+  const { userController } = container; // still fully typed
+}
+```
+
+The dependency types are unchanged — `container.userController` resolves exactly as before, and the container stays
+chainable.
+
+This is purely for readability. Referring to a container from another file is already cheap: in a 400-dependency graph,
+50 consumer files add only ~2.6K type instantiations each, and naming the type costs about 3% _more_, not less. Reach
+for it when your error messages get unreadable, not to speed up compilation — for that, see [Compose](#compose).
+
+---
+
 ### Other methods
 
 - **`.get(name)`** — resolve a dependency by name. Equivalent to property access (`container.foo`). Throws
@@ -322,3 +435,20 @@ container.hasResolvedDependency('bar'); // false — not resolved yet
 container.get('bar');
 container.hasResolvedDependency('bar'); // true — now cached
 ```
+
+---
+
+## Further reading
+
+- **[AI agent integration guide](./docs/ai-agent-guide.md)** — one page an AI coding agent can read
+  before wiring RSDI into a project: API reference, the mistakes that fail to compile, how to
+  structure a large container, and how to decode each error.
+- [Async factory resolvers](./docs/async_factory_resolver.md) — why factories are synchronous, and
+  how to handle resources that need `await`.
+- [DI container vs context](./docs/context_vs_container.md) — why the container stays at the
+  composition root instead of being passed through your app.
+- [Strict types](./docs/strict_types.md) — what the compiler catches for you.
+- [Type-performance plan](./docs/type-performance-plan.md) — measurements behind the O(N²) chain
+  cost and the composition guidance, for contributors.
+- [Reading `pnpm bench:types`](./docs/type-benchmarks.md) — how to interpret the type-cost gate,
+  for contributors.

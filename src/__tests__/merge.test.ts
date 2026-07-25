@@ -34,6 +34,34 @@ describe('DIContainer merge containers', () => {
     expect(finalContainer.a).toEqual('2');
   });
 
+  test('merge several containers in a single call', () => {
+    const containerA = new DIContainer().add('a', () => '1');
+    const containerB = new DIContainer().add('b', () => 'b');
+    const containerC = new DIContainer().add('buzz', () => new Buzz('buzz'));
+
+    const finalContainer = containerA.merge(containerB, containerC);
+
+    expect(finalContainer.a).toEqual('1');
+    expect(finalContainer.b).toEqual('b');
+    expect(finalContainer.buzz.name).toEqual('buzz');
+  });
+
+  test('merge without arguments keeps the container untouched', () => {
+    const containerA = new DIContainer().add('a', () => '1');
+
+    expect(containerA.merge().a).toEqual('1');
+  });
+
+  test('merging an override evicts the value the replaced resolver produced', () => {
+    const containerA = new DIContainer().add('a', () => '1');
+    // resolve before merging, so a stale cached value could survive its own resolver
+    expect(containerA.a).toEqual('1');
+
+    const containerB = new DIContainer().add('a', () => '2');
+
+    expect(containerA.merge(containerB).a).toEqual('2');
+  });
+
   test('resolved properties only once', () => {
     const containerA = new DIContainer().add('buzz', () => new Buzz('buzz'));
     const buzzInstance = containerA.buzz;

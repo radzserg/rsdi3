@@ -16,7 +16,8 @@
   "author": "Sergey Radzishevskii <radzserg@gmail.com>",
   "files": [
     "dist/**",
-    "!dist/**/__tests__/**"
+    "!dist/**/__tests__/**",
+    "docs/ai-agent-guide.md"
   ],
   "type": "module",
   "main": "./dist/index.js",
@@ -28,6 +29,7 @@
     }
   },
   "scripts": {
+    "bench:types": "node scripts/bench-types.mjs",
     "build": "tsc",
     "format": "oxfmt --threads=1 && oxlint --type-aware --type-check --quiet --fix",
     "lint": "oxfmt --threads=1 --check && oxlint --type-aware --type-check --quiet --format unix",

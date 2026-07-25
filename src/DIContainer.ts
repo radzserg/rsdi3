@@ -4,18 +4,27 @@ import {
   ForbiddenNameError,
 } from './errors.js';
 import {
+  type ContainerLike,
   type DenyInputKeys,
   type Factory,
   type IDIContainer,
+  type MergedResolvers,
   type ResolvedDependencies,
   type ResolvedDependencyValue,
   type Resolvers,
   type StringLiteral,
 } from './types.js';
 
+// Every public *instance* member, because `addContainerProperty` defines dependencies as own
+// properties that would otherwise shadow the method of the same name. `export` belongs here even
+// though it is rarely used directly: `merge` calls it on the containers passed to it, so a
+// dependency named `export` turned any `merge`/`compose` involving that container into a
+// `TypeError`. Statics (`compose`) never live on the instance and are deliberately absent.
+// `src/__tests__/reservedNames.test.ts` fails if a new public method is not listed here.
 const containerMethods = new Set([
   'add',
   'clone',
+  'export',
   'extend',
   'get',
   'has',
@@ -47,15 +56,52 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   }
 
   /**
+   * Combines independently built containers into a single new container.
+   *
+   * This is the recommended way to wire a large dependency graph. Splitting the graph
+   * into modules and composing them is dramatically cheaper to type-check than one long
+   * `add` chain, because each module chain is type-checked against its own small
+   * resolver map instead of the ever-growing combined one:
+   *
+   * // repositories.ts
+   * export const repositories = new DIContainer().add('userRepository', () => new UserRepository());
+   * // services.ts
+   * export const services = new DIContainer().add('mailer', () => new Mailer());
+   * // container.ts
+   * const container = DIContainer.compose(repositories, services);
+   *
+   * Factories may depend on names provided by any of the composed containers — resolution
+   * happens lazily against the composed container, so cross-module dependencies work at
+   * runtime. Only the *types* of a module are limited to what that module declares; when a
+   * module needs another module's dependencies to be visible at compile time, layer them
+   * with `extend` instead.
+   *
+   * The inputs are left untouched: the composed container is a new instance.
+   *
+   * When several containers define the same name the last one wins at runtime, including
+   * over a value the earlier container had already resolved. Note the types intersect rather
+   * than overwrite, so a name defined twice with *different* types resolves to `never` — a
+   * deliberate signal, since a scalable last-writer-wins type fold has to recurse per
+   * container and trips TypeScript's depth limiter at ~50 of them. Prefer `update()` when a
+   * replacement is intentional.
+   * @param containers
+   */
+  public static compose<T extends readonly ContainerLike[]>(
+    ...containers: T
+  ): IDIContainer<MergedResolvers<T>> {
+    return new DIContainer().merge(...containers) as IDIContainer<MergedResolvers<T>>;
+  }
+
+  /**
    * Adds new dependency resolver to the container. If dependency with given name already exists it will throw an error.
    * Use update method instead. It will override existing dependency.
    * @param name
    * @param resolver
    */
-  public add<N extends string, R extends Factory<ContainerResolvers>>(
+  public add<N extends string, V>(
     name: StringLiteral<DenyInputKeys<N, keyof ContainerResolvers>>,
-    resolver: R,
-  ): IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> {
+    resolver: Factory<ContainerResolvers, V>,
+  ): IDIContainer<ContainerResolvers & { [n in N]: V }> {
     if (containerMethods.has(name)) {
       throw new ForbiddenNameError(name);
     }
@@ -66,7 +112,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 
     this.setValue(name, resolver);
 
-    return this as IDIContainer<ContainerResolvers & { [n in N]: ReturnType<R> }> & this;
+    return this as unknown as IDIContainer<ContainerResolvers & { [n in N]: V }>;
   }
 
   /**
@@ -157,34 +203,60 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   }
 
   /**
-   * Merges two containers. It will return a new container with merged resolvers. Resolved dependencies will be merged as well.
-   * @param otherContainer
+   * Merges other containers into this one. Resolved dependencies are merged as well.
+   *
+   * Accepts any number of containers, so a set of independently built modules can be
+   * combined in a single call:
+   *
+   * base.merge(repositories, services, controllers)
+   *
+   * Combining modules this way is also much cheaper to type-check than one long
+   * `add` chain — see docs/type-performance-plan.md.
+   *
+   * When several containers define the same name the last one wins at runtime, including over
+   * an already-resolved value. The types intersect rather than overwrite, so the same name with
+   * two different types resolves to `never` rather than the later type.
+   *
+   * This mutates and returns `this`; use `clone()` or the static `DIContainer.compose()`
+   * when a separate instance is required.
+   * @param containers
    */
-  public merge<OtherContainerResolvers extends ResolvedDependencies>(
-    otherContainer: DIContainer<OtherContainerResolvers>,
-  ): IDIContainer<ContainerResolvers & OtherContainerResolvers> {
-    const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } =
-      otherContainer.export();
+  public merge<T extends readonly ContainerLike[]>(
+    ...containers: T
+  ): IDIContainer<ContainerResolvers & MergedResolvers<T>> {
+    for (const otherContainer of containers) {
+      const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } = (
+        otherContainer as DIContainer<ResolvedDependencies>
+      ).export();
 
-    const resolvers = {
-      ...this.resolvers,
-      ...newResolvers,
-    };
+      // A replaced resolver must not keep the value the previous one produced — the same
+      // eviction `update()` performs. Only the overriding container's own cache may survive,
+      // so a name it re-registers without having resolved yet has to lose the old value;
+      // otherwise `merge`/`compose` return the earlier container's instance from a resolver
+      // that no longer exists, silently contradicting last-writer-wins.
+      for (const name of Object.keys(newResolvers)) {
+        if (!Object.hasOwn(newResolvedDependencies, name)) {
+          // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+          delete this.resolvedDependencies[name as keyof ContainerResolvers];
+        }
+      }
 
-    const resolvedDependencies = {
-      ...this.resolvedDependencies,
-      ...newResolvedDependencies,
-    };
+      this.resolvers = {
+        ...this.resolvers,
+        ...newResolvers,
+      };
 
-    this.resolvers = resolvers;
-    this.resolvedDependencies = {
-      ...resolvedDependencies,
-    };
+      this.resolvedDependencies = {
+        ...this.resolvedDependencies,
+        ...newResolvedDependencies,
+      };
+    }
+
     for (const property of Object.keys(this.resolvers)) {
       this.addContainerProperty(property);
     }
 
-    return this as unknown as IDIContainer<ContainerResolvers & OtherContainerResolvers>;
+    return this as unknown as IDIContainer<ContainerResolvers & MergedResolvers<T>>;
   }
 
   /**
@@ -196,12 +268,12 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * @param name
    * @param resolver
    */
-  public update<N extends keyof ContainerResolvers, R extends Factory<ContainerResolvers>>(
+  public update<N extends keyof ContainerResolvers, V>(
     name: StringLiteral<N>,
-    resolver: R,
+    resolver: Factory<ContainerResolvers, V>,
   ): IDIContainer<
     {
-      [n in N]: ReturnType<R>;
+      [n in N]: V;
     } & {
       [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
     }
@@ -222,12 +294,11 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
 
     return this as unknown as IDIContainer<
       {
-        [n in N]: ReturnType<R>;
+        [n in N]: V;
       } & {
         [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
       }
-    > &
-      this;
+    >;
   }
 
   protected setResolvers<CR extends ResolvedDependencies>(

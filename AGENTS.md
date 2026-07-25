@@ -21,12 +21,15 @@ Use **pnpm** (pinned via `packageManager`; do not use npm/yarn).
 | Single test case     | `npx vitest --run -t 'merge containers'`              |
 | Lint (check)         | `pnpm lint`                                           |
 | Format + autofix     | `pnpm format`                                         |
+| Type-cost budgets    | `pnpm bench:types`                                    |
 
 `pnpm lint` runs `oxfmt --check` then `oxlint --type-aware --type-check`; `pnpm format` runs the same two tools in write/`--fix` mode.
 
 Type tests only run when `--typecheck` is passed, so a bare `npx vitest --run` silently skips every `*.test-d.ts` assertion. `pnpm test` includes it; ad-hoc filtered runs need it added back.
 
 There is no separate typecheck script — `pnpm test` runs both runtime tests and type tests in one pass. Always run `pnpm build`, `pnpm test`, and `pnpm lint` before considering a change done; CI (`.github/workflows/ci.yml`) runs `pnpm build` + `pnpm lint` in one job and `pnpm test` across a Node matrix in another, with an aggregate `CI` job as the single required status check.
+
+**Run `pnpm bench:types` too whenever you touch `src/types.ts` or an `add`/`merge`/`compose` signature.** The type tests assert inference at three or four dependencies, which is too small to expose how these types actually fail — both known failure modes pass the full 82-test suite untouched. `scripts/bench-types.mjs` checks the shapes that are big enough, and gates them on instantiation budgets; it runs in CI as the `types-perf` job. Budgets are compiler-specific, so a TypeScript upgrade needs them re-baselined in the same commit. `docs/type-benchmarks.md` explains how to read the report and what to do with each kind of failure.
 
 ## Source layout
 
@@ -35,7 +38,7 @@ src/
   DIContainer.ts   # the container class (add/get/update/merge/clone/extend/has/…)
   types.ts         # public + internal type machinery (IDIContainer, Factory, …)
   errors.ts        # typed error classes
-  index.ts         # public entry point — exports DIContainer, IDIContainer
+  index.ts         # public entry point — exports DIContainer, IDIContainer, ResolversOf, SealedContainer
   __tests__/
     *.test.ts                     # runtime tests (vitest)
     __typetests__/*.test-d.ts     # TYPE tests (vitest expectTypeOf, needs --typecheck)
@@ -65,11 +68,11 @@ Because of that intersection, a dependency called `get` would shadow the `get` m
 - **Compile time** — `DenyInputKeys` / `StringLiteral` in `types.ts` reject non-literal and colliding names.
 - **Runtime** — the `containerMethods` `Set` at the top of `DIContainer.ts` throws `ForbiddenNameError`.
 
-Adding a public method to the class means adding its name to that `Set`.
+Adding a public **instance** method to the class means adding its name to that `Set`. Static members (`DIContainer.compose`) are exempt — they never live on the instance, so a dependency cannot shadow them.
 
 ### Mutation is real; immutability is only in the types
 
-`add`, `update`, and `merge` all mutate `this` and return it re-cast. Despite the JSDoc on `merge` saying it returns a new container, it does not — it writes into `this.resolvers` and returns `this`. `clone()` is the only method that produces a genuinely separate instance.
+`add`, `update`, and `merge` all mutate `this` and return it re-cast — `merge` writes into `this.resolvers` and returns `this`. `clone()` and the static `DIContainer.compose()` are the only ways to get a genuinely separate instance; `compose` builds a fresh container and merges each input into it, leaving the inputs untouched.
 
 `clone()` works through `ClonedDiContainer`, a non-exported subclass at the bottom of `DIContainer.ts`. It exists purely to provide a constructor that seeds resolvers, because the public `DIContainer` constructor deliberately takes no arguments. `setResolvers` is `protected` for the same reason and throws if resolvers already exist.
 
@@ -108,6 +111,8 @@ Factories receive `this.context`, a `Proxy` built in the constructor that forwar
 
 - **Resolvers are lazy and cached.** `add(name, factory)` registers a factory; it runs once on first `get`/property access, then the result is cached. `add` throws if the name already exists — use `update` to replace (mainly for test mocking). Reserved container method names (`add`, `get`, `merge`, …) cannot be used as dependency names.
 
+- **Composition is the answer to slow type-checking, and it is load-bearing.** A single `.add()` chain of N dependencies costs O(N²) to check (1600 deps ≈ 90 s); the same graph split into modules and combined with `DIContainer.compose()` checks in under a second. `MergedResolvers` in `types.ts` deliberately uses a union-to-intersection fold — a recursive tuple fold trips TS2589 at ~50 containers and silently degrades inference to `never`. Likewise `ResolversOf` must test the `DIContainer` class branch **before** the `IDIContainer` branch, since a class instance also matches `IDIContainer` structurally. Both constraints are covered by type tests; see `docs/type-performance-plan.md` for the measurements.
+
 ## Toolchain pins (don't casually bump)
 
 - **Linting is oxlint-only — no ESLint.** `oxlint` + `oxfmt` + `oxlint-config-canonical` replaced the ESLint/prettier stack; type-aware rules need `oxlint-tsgolint` installed (it is a devDependency, invoked via `--type-aware --type-check`).
@@ -119,7 +124,7 @@ Factories receive `this.context`, a `Proxy` built in the constructor that forwar
 ## Publishing
 
 - `prepublishOnly` runs `pnpm build`, so `dist/` is always fresh on publish.
-- `files` publishes `dist/**` but excludes `dist/**/__tests__/**` — compiled tests are not shipped.
+- `files` publishes `dist/**` but excludes `dist/**/__tests__/**` — compiled tests are not shipped. It also ships `docs/ai-agent-guide.md`, so an AI agent working in a consumer's project can read the integration guide straight out of `node_modules`; that file is the only doc that ships, so any link in it to another doc must be an absolute GitHub URL rather than a relative path.
 - License is **Apache-2.0** (matches the `LICENSE` file).
 
 - **The package is ESM-only and that is deliberate**, not a limitation — nothing in `src/` requires it (no `import.meta`, no top-level await). CommonJS consumers are not shut out: Node 20.19+ and 22.12+ resolve `require()` of an ESM package, so the effective floor for a CJS consumer is Node 20.19 even though `engines.node` says 16.9. TypeScript CJS consumers need `module: nodenext`; on `Node16` they get `TS1479`. Dual-publishing CJS has been considered and rejected — it doubles the build and invites the dual package hazard, where two loaded copies make `instanceof DIContainer` fail.
