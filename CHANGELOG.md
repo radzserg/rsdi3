@@ -1,5 +1,10 @@
 # Changelog
 
+# 3.2.2
+
+Republished with the npm CLI so the README renders on npmjs.com — earlier `pnpm publish` runs
+omitted the README from the registry manifest. No code changes.
+
 # 3.2.1
 
 Added `repository` and `bugs` metadata so the relative links in the README (including the AI agent
