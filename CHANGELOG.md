@@ -1,5 +1,25 @@
 # Changelog
 
+# 3.2.0
+
+## Added
+
+- `DIContainer.compose(...containers)` — builds a new container from independently built ones,
+  leaving the inputs untouched. Splitting a large graph into modules and composing them is far
+  cheaper to type-check than one long `add` chain.
+- `merge(...containers)` now accepts any number of containers; existing single-container calls are
+  unchanged.
+- `SealedContainer<C>` and `ResolversOf<C>` types are now exported, for naming a built container in
+  hovers and error messages and for extracting its resolver map.
+
+## Fixed
+
+- `merge`/`compose` now clear a stale cached value when a later container overrides a name.
+  Previously an already-resolved dependency kept returning the earlier instance, contradicting
+  last-writer-wins.
+- A dependency named `export` no longer breaks `merge`/`compose`. `export` is now a reserved name
+  and is rejected at registration, like the other container methods.
+
 # 3.1.0
 
 ## Added
