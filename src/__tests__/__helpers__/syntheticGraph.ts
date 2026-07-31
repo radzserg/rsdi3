@@ -70,3 +70,6 @@ export const resolveAll = (container: SyntheticContainer, size: number): void =>
     sink.value = container.get(`k${index}`);
   }
 };
+
+export const keysOf = (size: number): string[] =>
+  Array.from({ length: size }, (_, index) => `k${index}`);

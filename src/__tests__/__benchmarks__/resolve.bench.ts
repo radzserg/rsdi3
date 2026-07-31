@@ -4,6 +4,7 @@ import { Bar, Foo } from '../__helpers__/fakeClasses.js';
 import {
   buildIndependentChain,
   buildLinkedChain,
+  keysOf,
   resolveAll,
   sink,
 } from '../__helpers__/syntheticGraph.js';
@@ -14,7 +15,7 @@ const BATCH_SIZE = 1_000;
 
 const CHAIN_SIZE = 100;
 
-const LAST_KEY = `k${CHAIN_SIZE - 1}`;
+const SMALL_KEYS = ['name', 'bar', 'foo'] as const;
 
 describe(`cached resolution (×${BATCH_SIZE.toLocaleString()} per sample)`, () => {
   const container = new DIContainer()
@@ -24,26 +25,30 @@ describe(`cached resolution (×${BATCH_SIZE.toLocaleString()} per sample)`, () =
 
   const large = buildLinkedChain(CHAIN_SIZE);
 
+  const largeKeys = keysOf(CHAIN_SIZE);
+
   // Warm the cache; first calls belong to the group below.
   container.get('foo');
   resolveAll(large, CHAIN_SIZE);
 
+  // The name has to vary per iteration. Asking for one fixed key leaves the call loop-invariant,
+  // and V8 hoists it clean out of the batch — which made a 4x speedup read as a 1.6x regression.
   bench('get()', () => {
     for (let index = 0; index < BATCH_SIZE; index++) {
-      sink.value = container.get('foo');
+      sink.value = container.get(SMALL_KEYS[index % SMALL_KEYS.length]);
     }
   });
 
   // Should track `get()`; a gap means the getter stopped forwarding.
   bench('property access', () => {
     for (let index = 0; index < BATCH_SIZE; index++) {
-      sink.value = container.foo;
+      sink.value = container[SMALL_KEYS[index % SMALL_KEYS.length]];
     }
   });
 
   bench(`get() — ${CHAIN_SIZE}-dependency container`, () => {
     for (let index = 0; index < BATCH_SIZE; index++) {
-      sink.value = large.get(LAST_KEY);
+      sink.value = large.get(largeKeys[index % CHAIN_SIZE]);
     }
   });
 });
