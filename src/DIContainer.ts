@@ -13,6 +13,7 @@ import {
   type ResolvedDependencyValue,
   type Resolvers,
   type StringLiteral,
+  type UpdatedResolvers,
 } from './types.js';
 
 // Every public *instance* member, because `addContainerProperty` defines dependencies as own
@@ -290,19 +291,18 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * help you to avoid overriding dependencies by mistake.
    *
    * You may want to override dependency if you want to mock it in tests.
+   *
+   * Chaining overrides off a built container is a supported shape and stays cheap: when
+   * the replacement has the same type as the dependency it replaces — a test double for
+   * the real service — the container type passes through unchanged, so the chain costs
+   * the same at 60 links as at 20. See `UpdatedResolvers` in `types.ts`.
    * @param name
    * @param resolver
    */
   public update<N extends keyof ContainerResolvers, V>(
     name: StringLiteral<N>,
     resolver: Factory<ContainerResolvers, V>,
-  ): IDIContainer<
-    {
-      [n in N]: V;
-    } & {
-      [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
-    }
-  > {
+  ): IDIContainer<UpdatedResolvers<ContainerResolvers, N, V>> {
     if (containerMethods.has(name)) {
       throw new ForbiddenNameError(name);
     }
@@ -317,13 +317,7 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       delete this.resolvedDependencies[name];
     }
 
-    return this as unknown as IDIContainer<
-      {
-        [n in N]: V;
-      } & {
-        [P in Exclude<keyof ContainerResolvers, N>]: ContainerResolvers[P];
-      }
-    >;
+    return this as unknown as IDIContainer<UpdatedResolvers<ContainerResolvers, N, V>>;
   }
 
   protected setResolvers<CR extends ResolvedDependencies>(

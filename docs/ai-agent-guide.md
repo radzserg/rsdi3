@@ -297,23 +297,43 @@ expect(container.userService.register(data)).resolves.toBeDefined();
 `update` evicts any cached instance, so dependencies resolved after it see the replacement. Anything
 resolved _before_ it keeps the old instance it was constructed with.
 
+Chaining overrides is fine, however many there are:
+
+```ts
+const container = configureDI()
+  .clone()
+  .update('userRepository', () => fakeUserRepository)
+  .update('mailer', () => fakeMailer);
+// …60 more, still no TS2589
+```
+
+A fake that has the **same type** as the dependency it replaces — which is what a test double
+normally is — leaves the container type untouched, so the chain costs the same at 60 links as at
+two. Only an override that deliberately changes a dependency's type has to rewrite the map, and
+those are rare enough to chain a handful of times.
+
+Before this was true, long override chains hit `TS2589` and harnesses worked around it by breaking
+inference with `const container: any = …`. **Don't do that** — it silently gives up every dependency
+type in the file, which is most of what the container is for.
+
 ---
 
 ## Decoding errors
 
-| Symptom                                                                 | Cause                                                        | Fix                                                                                         |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `Argument of type '"x"' is not assignable to parameter of type 'never'` | Name already registered, or not a literal                    | Use `update`, or make the name a literal                                                    |
-| `Property 'x' does not exist on type 'IDIContainer<…>'`                 | Not registered, or module not composed in                    | Register it, or add its module to `compose`                                                 |
-| `Argument of type '{…}' is not assignable to … 'Factory<…>'`            | Passed a value instead of a factory                          | Wrap it: `() => value`                                                                      |
-| `ForbiddenNameError`                                                    | Used a reserved method name                                  | Rename the dependency                                                                       |
-| `DenyOverrideDependencyError`                                           | `add` on an existing name                                    | Use `update`                                                                                |
-| `DependencyIsMissingError`                                              | `get`/`update` on an unknown name                            | Register it first                                                                           |
-| `TypeError: resolver is not a function`                                 | Registered a value, not a factory                            | Wrap it: `() => value`                                                                      |
-| Editor sluggish in the container file                                   | One long `.add()` chain (O(N²))                              | Split into modules and `compose`                                                            |
-| `TS2589: Type instantiation is excessively deep`                        | Depth accumulated across a long chain                        | Give modules explicit named return types; stop chaining `ReturnType<typeof previousModule>` |
-| Every `add` name reports `parameter of type 'never'`                    | The container type collapsed, usually the same depth problem | Same fix — check the module boundaries first                                                |
-| Splitting into modules didn't speed anything up                         | Modules thread the whole accumulated type                    | Give each a declared consumed-type seed and `compose`                                       |
+| Symptom                                                                 | Cause                                                        | Fix                                                                                                       |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `Argument of type '"x"' is not assignable to parameter of type 'never'` | Name already registered, or not a literal                    | Use `update`, or make the name a literal                                                                  |
+| `Property 'x' does not exist on type 'IDIContainer<…>'`                 | Not registered, or module not composed in                    | Register it, or add its module to `compose`                                                               |
+| `Argument of type '{…}' is not assignable to … 'Factory<…>'`            | Passed a value instead of a factory                          | Wrap it: `() => value`                                                                                    |
+| `ForbiddenNameError`                                                    | Used a reserved method name                                  | Rename the dependency                                                                                     |
+| `DenyOverrideDependencyError`                                           | `add` on an existing name                                    | Use `update`                                                                                              |
+| `DependencyIsMissingError`                                              | `get`/`update` on an unknown name                            | Register it first                                                                                         |
+| `TypeError: resolver is not a function`                                 | Registered a value, not a factory                            | Wrap it: `() => value`                                                                                    |
+| Editor sluggish in the container file                                   | One long `.add()` chain (O(N²))                              | Split into modules and `compose`                                                                          |
+| `TS2589: Type instantiation is excessively deep`                        | Depth accumulated across a long chain                        | Give modules explicit named return types; stop chaining `ReturnType<typeof previousModule>`               |
+| `TS2589` on a chain of `update()` calls                                 | Overrides that change a dependency's type rewrite the map    | Give the fake the same type as the real dependency (`as` the interface); never reach for `container: any` |
+| Every `add` name reports `parameter of type 'never'`                    | The container type collapsed, usually the same depth problem | Same fix — check the module boundaries first                                                              |
+| Splitting into modules didn't speed anything up                         | Modules thread the whole accumulated type                    | Give each a declared consumed-type seed and `compose`                                                     |
 
 ---
 

@@ -28,6 +28,54 @@ describe('DIContainer typescript type resolution', () => {
     expectTypeOf(container.a).not.toEqualTypeOf<string>();
   });
 
+  // `update` passes the container type through untouched when the replacement has the
+  // same type, which is what keeps a long override chain from accumulating depth. These
+  // pin the inference that shortcut must not cost — see `UpdatedResolvers` in types.ts.
+  test('update leaves the other dependencies alone', () => {
+    const container = new DIContainer()
+      .add('a', () => 'string')
+      .add('bar', () => new Bar())
+      .update('a', () => new Date());
+
+    expectTypeOf(container.a).toEqualTypeOf<Date>();
+    expectTypeOf(container.bar).toEqualTypeOf<Bar>();
+    expectTypeOf(container.get('bar')).toEqualTypeOf<Bar>();
+  });
+
+  test('update with the same type keeps that type', () => {
+    const container = new DIContainer().add('a', () => 'string').update('a', () => 'mock');
+
+    expectTypeOf(container.a).toEqualTypeOf<string>();
+    expectTypeOf(container.get('a')).toEqualTypeOf<string>();
+  });
+
+  test('update with a subtype narrows the dependency', () => {
+    class Animal {
+      public legs = 4;
+    }
+    class Dog extends Animal {
+      public bark() {
+        return 'woof';
+      }
+    }
+
+    const container = new DIContainer()
+      .add('pet', () => new Animal())
+      .update('pet', () => new Dog());
+
+    expectTypeOf(container.pet).toEqualTypeOf<Dog>();
+  });
+
+  test('the container stays chainable and typed after an update', () => {
+    const container = new DIContainer()
+      .add('a', () => 'string')
+      .update('a', () => 42)
+      .add('foo', ({ a }) => a + 1);
+
+    expectTypeOf(container.a).toEqualTypeOf<number>();
+    expectTypeOf(container.foo).toEqualTypeOf<number>();
+  });
+
   test('merge containers', () => {
     const containerA = new DIContainer().add('a', () => 'string');
     const containerB = new DIContainer().add('b', () => new Date());

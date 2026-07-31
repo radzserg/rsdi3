@@ -30,11 +30,18 @@ Above 100% it fails.
 
 ### What each scenario guards
 
-| Scenario        | Catches                                                                         |
-| --------------- | ------------------------------------------------------------------------------- |
-| `chain-200`     | the per-`add` cost — what every user pays on every dependency                   |
-| `compose-400`   | the `compose` path specifically                                                 |
-| `compose-scale` | the depth limiter at 60 containers — the trap that produces no error when small |
+| Scenario           | Catches                                                                                         |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| `chain-200`        | the per-`add` cost — what every user pays on every dependency                                   |
+| `compose-400`      | the `compose` path specifically                                                                 |
+| `compose-scale`    | the depth limiter at 60 containers — the trap that produces no error when small                 |
+| `module-seeded-64` | one domain module layered on a large container — the shape that breaks before a flat chain does |
+| `update-chain-80`  | a long `update()` override chain off a built container — the shape test harnesses reach         |
+
+The last two are deliberately the _seeded_ shapes. Starting from an empty container understates
+what an `add` or an `update` costs, because each candidate return type is checked against a map
+that is still small. Both scenarios were added after field reports from a ~340-dependency
+application hit `TS2589` on shapes the empty-start scenarios waved through.
 
 ---
 

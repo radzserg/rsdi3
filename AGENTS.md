@@ -93,6 +93,14 @@ Factories receive `this.context`, a `Proxy` built in the constructor that forwar
 
 `update()` must delete the cached value for the name it replaces; without that, a container that had already resolved the dependency keeps returning the stale instance. This was a real bug fixed in 3.1.0.
 
+### `update` is the one method that can't widen lazily
+
+`add` appends with an intersection, which TypeScript never has to normalise. `update` _replaces_, and `{ a: A } & { a: B }` is `A & B` rather than `B` — so it has to rewrite the resolver map, and a rewrite per link makes a chain O(depth × container-size). That tripped `TS2589` at 50 chained calls on a 300-key container, in exactly the shape a test harness produces.
+
+`UpdatedResolvers` in `types.ts` avoids the rewrite in the case that actually chains: when the replacement's type is _mutually assignable_ with the one already registered — a test double for the real service — the container type passes through unchanged. The check has to be mutual, not one-way; one-way would also swallow the subtype case, which is supposed to narrow the container type. `bench-types.mjs`'s `update-chain-80` scenario fails with `TS2589` if the shortcut is removed.
+
+Note this is a _type_-level cost only. The runtime `update()` path is the same in-place `setValue` write `add` uses, and `resolverMapOwnership.test.ts` covers it.
+
 ## Runtime benchmarks
 
 `pnpm bench` runs `src/__tests__/__benchmarks__/*.bench.ts` through `vitest bench`, pricing the runtime claims above: cache hits are flat in container size, wiring is linear, `compose` adds nothing. **Read each group as ratios between its own rows** — wall clock does not transfer between machines, so there are no budgets and no CI job (`docs/type-benchmarks.md` explains why).
