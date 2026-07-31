@@ -1,6 +1,6 @@
 {
   "name": "rsdi",
-  "version": "3.2.1",
+  "version": "3.3.0",
   "description": "TypeScript dependency injection container. Strong types without decorators.",
   "keywords": [
     "container",
