@@ -46,6 +46,7 @@ const BUDGETS = {
   'compose-400': 130_000,
   'compose-scale': 45_000,
   'module-seeded-64': 48_000,
+  'update-chain-80': 18_000,
 };
 
 // `[any] extends [T]` and `[T] extends [any]` are both true, so a plain bidirectional-extends
@@ -110,6 +111,37 @@ const seededModuleFixture = (adds, seed) => {
   return s;
 };
 
+/**
+ * A built container with a long chain of `update()` overrides on top — the shape a test
+ * harness reaches when it swaps one service per test off the real container.
+ *
+ * `update` cannot express a replacement as an intersection, so it rewrites the resolver
+ * map, and a rewrite per link is O(depth × container-size). The `Exclude`-keyed rewrite
+ * this replaced tripped TS2589 at 50 links on this fixture; consumers were suppressing it
+ * with `@ts-expect-error` or breaking inference with `const container: any`. Most links in
+ * a real harness replace a dependency with a double of the *same* type, which is the case
+ * this scenario covers and the one `UpdatedResolvers` short-circuits — so a regression that
+ * reinstated a rewrite per link shows up here as diagnostics, not merely as a bigger number.
+ */
+const updateChainFixture = (updates, seed) => {
+  let s = `import { DIContainer } from '../../src/DIContainer.js';\n${EXACT}\n`;
+  s += `type Seed = {\n`;
+  for (let i = 0; i < seed; i++) {
+    s += `  s${i}: { v: number; name: string };\n`;
+  }
+
+  s += `};\n\nconst container = new DIContainer<Seed>()\n`;
+  for (let i = 0; i < updates; i++) {
+    s += `  .update('s${i % seed}', () => ({ v: ${i}, name: 'u${i}' }))\n`;
+  }
+
+  s += `;\n`;
+  s += `export const exactUpdated: Exact<typeof container.s0, { v: number; name: string }> = true;\n`;
+  s += `export const exactUntouched: Exact<typeof container.s${seed - 1}, { v: number; name: string }> = true;\n`;
+  s += `export const exactGet: Exact<ReturnType<typeof container.get<'s1'>>, { v: number; name: string }> = true;\n`;
+  return s;
+};
+
 /** The recommended layout: independent modules combined with `compose`. */
 const composeFixture = (n, m) => {
   let s = `import { DIContainer } from '../../src/DIContainer.js';\n${EXACT}\n`;
@@ -169,6 +201,11 @@ const SCENARIOS = [
     build: () => seededModuleFixture(64, 300),
     name: 'module-seeded-64',
     what: '64 add() calls on top of a 300-key container (real-module shape)',
+  },
+  {
+    build: () => updateChainFixture(80, 300),
+    name: 'update-chain-80',
+    what: '80 chained update() overrides on a 300-key container (test-harness shape)',
   },
 ];
 

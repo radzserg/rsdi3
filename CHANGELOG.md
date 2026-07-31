@@ -1,5 +1,27 @@
 # Changelog
 
+# Unreleased
+
+## Fixed
+
+- A long chain of `update()` overrides no longer trips `TS2589`. `update` has to rewrite the
+  resolver map rather than intersect into it, which made a chain O(depth × container-size);
+  measured on a 300-key container it started erroring at **50** chained calls — a length real test
+  harnesses reach when they override one service per test. When the replacement has the same type
+  as the dependency it replaces, which is what a test double normally is, the container type now
+  passes through unchanged: 80 chained overrides cost 12.2K instantiations with no diagnostics,
+  against 225K plus 11 errors at 60 before. Overrides that deliberately change a dependency's type
+  still rewrite the map, but roughly half as expensively as before.
+
+  Inference is unchanged — including narrowing when a dependency is replaced with a subtype. Test
+  harnesses working around the old limit with `@ts-expect-error` or `const container: any` can drop
+  those suppressions.
+
+## Changed
+
+- `pnpm bench:types` gained an `update-chain-80` scenario, so a regression in the above fails CI
+  instead of reaching consumers.
+
 # 3.2.1
 
 Added `repository` and `bugs` metadata so the relative links in the README (including the AI agent
