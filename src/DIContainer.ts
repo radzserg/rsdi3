@@ -48,9 +48,9 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   public constructor() {
     this.context = new Proxy(this, {
       get(target, property) {
-        const propertyName = property.toString() as keyof DIContainer<ContainerResolvers>;
-
-        return target[propertyName];
+        // Indexing with the key as given: `toString()` here cost a call on every dependency a
+        // factory destructures, and turned a symbol lookup into a miss under its description.
+        return target[property as keyof DIContainer<ContainerResolvers>];
       },
     }) as unknown as ContainerResolvers;
   }
@@ -176,8 +176,9 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   public get<Name extends keyof ContainerResolvers>(
     dependencyName: Name,
   ): ContainerResolvers[Name] {
-    if (this.resolvedDependencies[dependencyName] !== undefined) {
-      return this.resolvedDependencies[dependencyName];
+    const resolved = this.resolvedDependencies[dependencyName];
+    if (resolved !== undefined) {
+      return resolved;
     }
 
     const resolver = this.resolvers[dependencyName];
@@ -185,9 +186,10 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       throw new DependencyIsMissingError(dependencyName as string);
     }
 
-    this.resolvedDependencies[dependencyName] = resolver(this.context);
+    const value = resolver(this.context);
+    this.resolvedDependencies[dependencyName] = value;
 
-    return this.resolvedDependencies[dependencyName];
+    return value;
   }
 
   /**
@@ -224,36 +226,45 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
   public merge<T extends readonly ContainerLike[]>(
     ...containers: T
   ): IDIContainer<ContainerResolvers & MergedResolvers<T>> {
+    const ownResolvers = this.resolvers as Record<string, Factory<ContainerResolvers>>;
+    const ownResolvedDependencies = this.resolvedDependencies as Record<
+      string,
+      ResolvedDependencyValue
+    >;
+
     for (const otherContainer of containers) {
       const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } = (
         otherContainer as DIContainer<ResolvedDependencies>
       ).export();
 
-      // A replaced resolver must not keep the value the previous one produced — the same
-      // eviction `update()` performs. Only the overriding container's own cache may survive,
-      // so a name it re-registers without having resolved yet has to lose the old value;
-      // otherwise `merge`/`compose` return the earlier container's instance from a resolver
-      // that no longer exists, silently contradicting last-writer-wins.
       for (const name of Object.keys(newResolvers)) {
-        if (!Object.hasOwn(newResolvedDependencies, name)) {
+        // A replaced resolver must not keep the value the previous one produced — the same
+        // eviction `update()` performs. Only the overriding container's own cache may survive,
+        // so a name it re-registers without having resolved yet has to lose the old value;
+        // otherwise `merge`/`compose` return the earlier container's instance from a resolver
+        // that no longer exists, silently contradicting last-writer-wins.
+        //
+        // Our own cache is tested first so that merging into a container that has resolved
+        // nothing — the `compose` case — issues no deletes at all.
+        if (
+          Object.hasOwn(this.resolvedDependencies, name) &&
+          !Object.hasOwn(newResolvedDependencies, name)
+        ) {
           // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
           delete this.resolvedDependencies[name as keyof ContainerResolvers];
         }
+
+        // Only the incoming names can be new, so this replaces a rescan of the whole merged map.
+        this.addContainerProperty(name);
+
+        // Writing into the map rather than rebuilding it per container is what keeps
+        // `compose(...modules)` linear in total dependencies instead of quadratic.
+        ownResolvers[name] = (newResolvers as Record<string, Factory<ContainerResolvers>>)[name];
       }
 
-      this.resolvers = {
-        ...this.resolvers,
-        ...newResolvers,
-      };
-
-      this.resolvedDependencies = {
-        ...this.resolvedDependencies,
-        ...newResolvedDependencies,
-      };
-    }
-
-    for (const property of Object.keys(this.resolvers)) {
-      this.addContainerProperty(property);
+      for (const name of Object.keys(newResolvedDependencies)) {
+        ownResolvedDependencies[name] = newResolvedDependencies[name];
+      }
     }
 
     return this as unknown as IDIContainer<ContainerResolvers & MergedResolvers<T>>;
@@ -311,39 +322,47 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
       throw new Error('Cannot set resolved dependencies after resolvers are defined');
     }
 
-    // @ts-expect-error - we are setting resolvers
-    this.resolvers = resolvers;
-    // @ts-expect-error - we are setting resolvedDependencies
-    this.resolvedDependencies = {
-      ...resolvedDependencies,
-    };
-    for (const property of Object.keys(this.resolvers)) {
-      this.addContainerProperty(property);
+    // Both maps are copied, not adopted. `add` and `merge` write into them in place, so a clone
+    // that kept its source's map would leak every later registration back into it.
+    //
+    // Entry by entry rather than by spread: these maps are built a key at a time, which leaves
+    // them in V8's dictionary mode, and spreading one of those costs over twice what the loop does.
+    const ownResolvers = this.resolvers as Record<string, Factory<ContainerResolvers>>;
+    const source = resolvers as unknown as Record<string, Factory<ContainerResolvers>>;
+    for (const name of Object.keys(source)) {
+      ownResolvers[name] = source[name];
+      this.addContainerProperty(name);
+    }
+
+    const ownResolvedDependencies = this.resolvedDependencies as Record<
+      string,
+      ResolvedDependencyValue
+    >;
+    for (const name of Object.keys(resolvedDependencies)) {
+      ownResolvedDependencies[name] = resolvedDependencies[name];
     }
   }
 
-  private addContainerProperty(name: string) {
-    // eslint-disable-next-line unicorn/no-this-assignment, @typescript-eslint/no-this-alias, consistent-this
-    let updatedObject = this;
-    if (!Object.hasOwn(this, name)) {
-      updatedObject = Object.defineProperty(this, name, {
-        get() {
-          return this.get(name);
-        },
-      });
+  private addContainerProperty(name: string): void {
+    if (Object.hasOwn(this, name)) {
+      return;
     }
 
-    return updatedObject;
+    Object.defineProperty(this, name, {
+      get() {
+        return this.get(name);
+      },
+    });
   }
 
   /**
    * Sets value to the container
    */
   private setValue(name: string, resolver: Factory<ContainerResolvers>): void {
-    this.resolvers = {
-      ...this.resolvers,
-      [name]: resolver,
-    };
+    // Writing into the map rather than rebuilding it is what makes a chain of `add` calls linear
+    // instead of quadratic. It is safe only because no two containers ever share a resolver map —
+    // `setResolvers` copies what `clone()` hands it, which `clone.test.ts` pins.
+    (this.resolvers as Record<string, Factory<ContainerResolvers>>)[name] = resolver;
 
     this.addContainerProperty(name);
   }

@@ -14,6 +14,34 @@ describe('DIContainer merge containers', () => {
     expect(boundedContextB.buzz.name).toEqual('buzzB');
   });
 
+  // `add` and `merge` write into the resolver map in place, so a clone that adopted its source's
+  // map rather than copying it would leak every later registration in either direction. These
+  // three pin that; without the copy in `setResolvers` they fail.
+  test('adding to a clone leaves the original untouched', () => {
+    const baseContainer = new DIContainer().add('a', () => 'a');
+
+    baseContainer.clone().add('b', () => 'b');
+
+    expect(baseContainer.has('b')).toBe(false);
+  });
+
+  test('adding to the original leaves an existing clone untouched', () => {
+    const baseContainer = new DIContainer().add('a', () => 'a');
+    const cloned = baseContainer.clone();
+
+    baseContainer.add('b', () => 'b');
+
+    expect(cloned.has('b')).toBe(false);
+  });
+
+  test('merging into a clone leaves the original untouched', () => {
+    const baseContainer = new DIContainer().add('a', () => 'a');
+
+    baseContainer.clone().merge(new DIContainer().add('b', () => 'b'));
+
+    expect(baseContainer.has('b')).toBe(false);
+  });
+
   test('clone container after dependency resolution', () => {
     const baseContainer = new DIContainer().add('buzz', () => new Buzz('buzzA'));
     // resolve buzz dependency
