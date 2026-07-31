@@ -37,6 +37,7 @@
   },
   "scripts": {
     "bench": "vitest bench --run",
+    "bench:compare": "node scripts/bench-compare.mjs",
     "bench:types": "node scripts/bench-types.mjs",
     "build": "tsc",
     "format": "oxfmt --threads=1 && oxlint --type-aware --type-check --quiet --fix",
