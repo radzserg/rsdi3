@@ -79,6 +79,8 @@ Adding a public **instance** method to the class means adding its name to that `
 
 `clone()` works through `ClonedDiContainer`, a non-exported subclass at the bottom of `DIContainer.ts`. It exists purely to provide a constructor that seeds resolvers, because the public `DIContainer` constructor deliberately takes no arguments. `setResolvers` is `protected` for the same reason and throws if resolvers already exist.
 
+**No two containers may share a resolver map.** `add` and `merge` write into `this.resolvers` in place — that is what keeps a chain linear instead of quadratic — so `setResolvers` has to copy what `clone()` hands it. Adopting the source's map instead would leak every later registration back into it in both directions. Three tests in `clone.test.ts` pin this; they are the reason the in-place writes are safe.
+
 ### Resolution: lazy, cached, via two access paths
 
 `get(name)` and property access (`container.name`) reach the same cache. Property access is wired by `addContainerProperty`, which `Object.defineProperty`s a getter delegating to `get()` as each resolver is registered.
@@ -89,7 +91,9 @@ Factories receive `this.context`, a `Proxy` built in the constructor that forwar
 
 ## Runtime benchmarks
 
-`pnpm bench` runs `src/__tests__/__benchmarks__/*.bench.ts` through `vitest bench`, pricing the runtime claims above: cache hits are flat, `add` is O(N²), `compose` adds nothing. **Read each group as ratios between its own rows** — wall clock does not transfer between machines, so there are no budgets and no CI job (`docs/type-benchmarks.md` explains why).
+`pnpm bench` runs `src/__tests__/__benchmarks__/*.bench.ts` through `vitest bench`, pricing the runtime claims above: cache hits are flat in container size, wiring is linear, `compose` adds nothing. **Read each group as ratios between its own rows** — wall clock does not transfer between machines, so there are no budgets and no CI job (`docs/type-benchmarks.md` explains why).
+
+**A benchmark body must not repeat one loop-invariant call.** Resolving a fixed name in a batch lets V8 hoist the call clean out of the loop, so the row measures the optimiser instead of the container — that artefact reported a 2.7x speedup here as a 1.6x regression, in both directions, reproducibly. Vary the name per iteration, as `resolve.bench.ts` does.
 
 ## Conventions & gotchas (read before editing)
 
