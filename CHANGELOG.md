@@ -1,26 +1,25 @@
 # Changelog
 
-# Unreleased
+# 3.3.0
 
 ## Fixed
 
-- A long chain of `update()` overrides no longer trips `TS2589`. `update` has to rewrite the
-  resolver map rather than intersect into it, which made a chain O(depth × container-size);
-  measured on a 300-key container it started erroring at **50** chained calls — a length real test
-  harnesses reach when they override one service per test. When the replacement has the same type
-  as the dependency it replaces, which is what a test double normally is, the container type now
-  passes through unchanged: 80 chained overrides cost 12.2K instantiations with no diagnostics,
-  against 225K plus 11 errors at 60 before. Overrides that deliberately change a dependency's type
-  still rewrite the map, but roughly half as expensively as before.
-
-  Inference is unchanged — including narrowing when a dependency is replaced with a subtype. Test
-  harnesses working around the old limit with `@ts-expect-error` or `const container: any` can drop
-  those suppressions.
+- A long chain of `update()` overrides no longer trips `TS2589`. On a 300-key container it
+  previously started erroring at 50 chained calls — a length a test harness reaches when it
+  overrides one service per test. Harnesses working around it with `@ts-expect-error` or
+  `const container: any` can drop those suppressions. Inference is unchanged, including narrowing
+  when a dependency is replaced with a subtype.
 
 ## Changed
 
-- `pnpm bench:types` gained an `update-chain-80` scenario, so a regression in the above fails CI
-  instead of reaching consumers.
+- Building a container is now linear rather than quadratic. Wiring 1600 dependencies takes 0.6 ms
+  rather than 196 ms, and a 200-dependency chain is roughly 10x faster. Resolving an
+  already-cached dependency is 2-4x faster on large containers.
+- `clone()` is roughly 35% slower — the cost of the copy that makes the above safe. It is a
+  setup-time operation where `add` and `get` are paid on every use, but if your workload clones
+  large containers in a hot path, that is the trade.
+- `export()` now returns copies of both maps. Previously the returned `resolvedDependencies` kept
+  reflecting resolutions that happened after the call.
 
 # 3.2.1
 
