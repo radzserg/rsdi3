@@ -29,7 +29,10 @@ describe('reserved dependency names', () => {
     }
   });
 
-  test('a dependency cannot shadow export and break merge', () => {
+  // `merge` used to call `export()` on every container passed to it, so a dependency of this name
+  // turned any `merge`/`compose` into a `TypeError`. `merge` reads the protected maps directly
+  // now, but `export` is still public API, so an own property shadowing it is still a break.
+  test('a dependency cannot shadow export', () => {
     expect(() => new DIContainer().add('export' as 'notAMethod', () => 1)).toThrow(
       ForbiddenNameError,
     );
