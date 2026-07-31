@@ -1,6 +1,6 @@
 ---
 name: release
-description: Prepare and cut a new release of the rsdi package — verify the build/lint/tests are green, decide the semver bump from the actual API changes, write the CHANGELOG entry, and run `pnpm version`. Use this whenever the user wants to bump the version, cut or prepare a release, ship a new version, tag a release, or asks "what version should this be?" — including when they only say something like "let's release this" or "time to publish" without naming a version number.
+description: Prepare and cut a new release of the rsdi package — verify the build/lint/tests are green, compare benchmarks against the last released tag to catch any performance regression, decide the semver bump from the actual API changes, write the CHANGELOG entry, and run `pnpm version`. Use this whenever the user wants to bump the version, cut or prepare a release, ship a new version, tag a release, or asks "what version should this be?" — including when they only say something like "let's release this" or "time to publish" without naming a version number.
 ---
 
 # Cutting an rsdi release
@@ -72,7 +72,62 @@ modified with no commit and no tag (see Gotchas). Finding out here is cheaper.
 `pnpm test` covers both runtime and type tests. All three must pass before you continue. If something
 fails, fix it or stop — never release around a red check.
 
-## Step 4 — Write the CHANGELOG entry
+## Step 4 — Compare performance against the last release
+
+```bash
+pnpm bench:compare
+```
+
+This builds the last released tag and the release candidate, measures both, and prints the deltas.
+It takes a couple of minutes and needs a **clean working tree**, because it switches refs in place —
+run it before you write the CHANGELOG, not after. It restores your branch on the way out, including
+when a measurement fails.
+
+Run it every time, even for a release you are sure is types-only. It is cheap relative to shipping a
+regression, and "sure" is exactly the state in which one gets through.
+
+### Reading the output
+
+Two cost models, and they earn very different amounts of trust:
+
+- **Type cost** — instantiation counts from `bench-types.mjs`. Deterministic: the same source
+  produces the same number on every machine. Any delta is real, and a flag here needs no second
+  opinion. A scenario reported as `BROKEN on the candidate` blocks the release outright.
+- **Runtime cost** — `p75` from `vitest bench`, best of alternating rounds. Wall clock, and the
+  weaker half by a wide margin. **It resolves large effects only.** A 10x wiring win is
+  unmistakable; a ~35% change does not survive a busy machine and has been observed reporting the
+  wrong _sign_. Rows whose own repeats disagree are printed as `unstable — not compared`, which
+  means unjudged, not clean. Treat this section as a smoke alarm and the type numbers as the gate.
+
+The runtime section is skipped entirely when the compiled output is identical to the baseline once
+comments are stripped. **That is a stronger result than any measurement, not a gap in coverage** — if
+the emitted JavaScript did not change, the runtime cannot have. Types-only releases normally land
+here and report nothing.
+
+### Acting on a flag
+
+| Report                                 | What to do                                                                                                                                                                            |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Type cost up >5%                       | Real. Investigate before releasing — this is the failure mode `bench:types` budgets exist to catch, and a budget with headroom will not catch a regression that still fits inside it. |
+| A scenario `BROKEN on the candidate`   | Stop. Inference degraded or a budget blew; that ships broken types to consumers.                                                                                                      |
+| Runtime row flagged `← SLOWER`         | Re-run with `BENCH_COMPARE_ROUNDS=4` on an otherwise idle machine before believing it. A single pair of runs has produced a confident +47% on a path that was actually 4× faster.     |
+| Runtime flag that survives more rounds | Probably real if it is large. Decide whether it is acceptable, then **say so in the CHANGELOG** — see below.                                                                          |
+| Several rows `unstable — not compared` | The machine is too busy for this measurement. Close what you can and re-run, or accept that runtime went unchecked and say so when handing back. Do not read it as a pass.            |
+| `no degradation`                       | Move on — bearing in mind that means "nothing large enough to detect", not "identical".                                                                                               |
+
+### Feed the result into the CHANGELOG
+
+This is why the step comes before Step 5 rather than after.
+
+- **A large improvement is consumer-visible and belongs in the entry.** "Wiring a container is no
+  longer quadratic" is exactly what someone deciding whether to upgrade wants to know.
+- **A regression you decide to accept must be disclosed, not buried.** 3.3.0 deliberately made
+  `clone()` ~35% slower to make `add` linear — a good trade, and one the entry stated plainly.
+  Someone whose workload is clone-heavy needs to be able to find that.
+- Small deltas that only move an internal counter are not consumer-visible. Leave them out, the same
+  as any other internal change.
+
+## Step 5 — Write the CHANGELOG entry
 
 Add the new section at the top of `CHANGELOG.md`, under the `# Changelog` heading. Match the existing
 shape: `# X.Y.Z` for the version, `## Added` / `## Fixed` / `## Changed` for groups, newest first.
@@ -130,7 +185,7 @@ package.
 
 Then format and re-check: `npx oxfmt CHANGELOG.md && pnpm lint`.
 
-## Step 5 — Commit the CHANGELOG
+## Step 6 — Commit the CHANGELOG
 
 ```bash
 git add CHANGELOG.md && git commit -m "docs: changelog for <version>"
@@ -139,7 +194,7 @@ git add CHANGELOG.md && git commit -m "docs: changelog for <version>"
 This is not optional housekeeping. `pnpm version` aborts on any uncommitted change, **including
 staged ones**, so a left-behind CHANGELOG edit blocks the bump entirely.
 
-## Step 6 — Bump
+## Step 7 — Bump
 
 ```bash
 pnpm version patch    # or minor / major
@@ -152,7 +207,7 @@ This bumps `package.json`, commits it with the bare version as the message (`3.1
 git log --oneline -1 && git tag --points-at HEAD
 ```
 
-## Step 7 — Hand back
+## Step 8 — Hand back
 
 Report the new version, the tag, and what the CHANGELOG says. Then stop.
 
@@ -167,6 +222,15 @@ git push && git push --tags
 
 - **`pnpm version` needs a completely clean tree.** Staged-but-uncommitted changes count as dirty and
   produce `ERR_PNPM_UNCLEAN_WORKING_TREE`. This is why the CHANGELOG is committed first.
+- **`pnpm bench:compare` also needs a clean tree**, for a different reason: it checks out the baseline
+  tag in place. It refuses rather than stashing on your behalf. If it is ever interrupted hard enough
+  to leave you on a detached HEAD, `git checkout <your-branch>` is the whole recovery — it only ever
+  touches the benchmark harness paths, and it restores those before switching back.
+- **Do not benchmark an old tag in a git worktree.** `bench-types.mjs` writes its fixtures under
+  `node_modules/.types-bench`, and they import `../../src`. A worktree typically symlinks
+  `node_modules` back to the primary checkout, so the fixture resolves to the _primary_ `src/` and
+  reports the current commit's numbers under the old tag's name. `bench:compare` switches refs in
+  place to avoid exactly this.
 - **A failing pre-commit hook leaves a half-bump.** If husky rejects the version commit, `pnpm
 version` has already written the new number into `package.json` and staged it, but there is no
   commit and no tag. Recover with `git checkout -- package.json` before retrying — otherwise the next

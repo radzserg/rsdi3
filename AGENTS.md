@@ -23,6 +23,7 @@ Use **pnpm** (pinned via `packageManager`; do not use npm/yarn).
 | Format + autofix     | `pnpm format`                                         |
 | Type-cost budgets    | `pnpm bench:types`                                    |
 | Runtime benchmarks   | `pnpm bench` (`vitest bench --run`)                   |
+| Compare vs last tag  | `pnpm bench:compare` (release step; clean tree)       |
 
 `pnpm lint` runs `oxfmt --check` then `oxlint --type-aware --type-check`; `pnpm format` runs the same two tools in write/`--fix` mode.
 
@@ -106,6 +107,13 @@ Note this is a _type_-level cost only. The runtime `update()` path is the same i
 `pnpm bench` runs `src/__tests__/__benchmarks__/*.bench.ts` through `vitest bench`, pricing the runtime claims above: cache hits are flat in container size, wiring is linear, `compose` adds nothing. **Read each group as ratios between its own rows** — wall clock does not transfer between machines, so there are no budgets and no CI job (`docs/type-benchmarks.md` explains why).
 
 **A benchmark body must not repeat one loop-invariant call.** Resolving a fixed name in a batch lets V8 hoist the call clean out of the loop, so the row measures the optimiser instead of the container — that artefact reported a 2.7x speedup here as a 1.6x regression, in both directions, reproducibly. Vary the name per iteration, as `resolve.bench.ts` does.
+
+**`pnpm bench:compare` is the one place these numbers become a verdict.** It builds the last released tag and the current checkout, measures both with _this_ checkout's harness, and reports the deltas; the `/release` skill runs it before the CHANGELOG is written. Two things it encodes that are easy to get wrong by hand:
+
+- **It skips the runtime section when the compiled `dist/*.js` is identical bar comments.** That is a stronger claim than any timing run, and it is how a types-only release avoids reporting noise as a result. The check is `-maxdepth 1` deliberately — `tsc` also emits `dist/__tests__/**`, and folding that in makes every test-only edit look like a runtime change.
+- **It alternates the two builds across rounds and keeps the best observation of each.** One unalternated pair is not enough: during development this exact harness reported a confident `+47.6%` regression on `get()`, a path that is roughly 4x _faster_. Two rounds put it at `-26.8%`. `BENCH_COMPARE_ROUNDS` raises it when a flag looks marginal.
+
+**Its runtime half resolves large effects only, and says so.** Rows whose own repeats disagree print as `unstable — not compared`, which means unjudged rather than clean. Even a row that passes the stability check has been seen reporting the wrong sign on a ~35% change while the machine was busy. The deterministic halves — type cost and the compiled-output check — are the actual gate; the timings are a smoke alarm.
 
 ## Conventions & gotchas (read before editing)
 
