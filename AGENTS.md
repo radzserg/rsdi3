@@ -22,6 +22,7 @@ Use **pnpm** (pinned via `packageManager`; do not use npm/yarn).
 | Lint (check)         | `pnpm lint`                                           |
 | Format + autofix     | `pnpm format`                                         |
 | Type-cost budgets    | `pnpm bench:types`                                    |
+| Runtime benchmarks   | `pnpm bench` (`vitest bench --run`)                   |
 
 `pnpm lint` runs `oxfmt --check` then `oxlint --type-aware --type-check`; `pnpm format` runs the same two tools in write/`--fix` mode.
 
@@ -42,7 +43,9 @@ src/
   __tests__/
     *.test.ts                     # runtime tests (vitest)
     __typetests__/*.test-d.ts     # TYPE tests (vitest expectTypeOf, needs --typecheck)
+    __benchmarks__/*.bench.ts     # runtime benchmarks (vitest bench, needs `pnpm bench`)
     __helpers__/fakeClasses.ts    # shared test fixtures
+    __helpers__/syntheticGraph.ts # generated containers for the benchmarks
 ```
 
 ## Architecture
@@ -83,6 +86,10 @@ Adding a public **instance** method to the class means adding its name to that `
 Factories receive `this.context`, a `Proxy` built in the constructor that forwards property reads back to the container — that is what makes `.add('foo', ({ a, bar }) => …)` destructuring resolve dependencies lazily at call time rather than at registration time.
 
 `update()` must delete the cached value for the name it replaces; without that, a container that had already resolved the dependency keeps returning the stale instance. This was a real bug fixed in 3.1.0.
+
+## Runtime benchmarks
+
+`pnpm bench` runs `src/__tests__/__benchmarks__/*.bench.ts` through `vitest bench`, pricing the runtime claims above: cache hits are flat, `add` is O(N²), `compose` adds nothing. **Read each group as ratios between its own rows** — wall clock does not transfer between machines, so there are no budgets and no CI job (`docs/type-benchmarks.md` explains why).
 
 ## Conventions & gotchas (read before editing)
 
