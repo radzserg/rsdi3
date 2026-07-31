@@ -1,11 +1,14 @@
-import { defineConfig } from 'vitest/config';
+import { defaultExclude, defineConfig } from 'vitest/config';
 
 // `tsc` compiles the tests and benchmarks along with the sources, so every file under `src/` has a
 // compiled twin under `dist/`. Vitest 4 dropped `**/dist/**` from its default excludes, which left
 // each suite running twice — the second time against whatever the last build emitted. That is
 // harmless when the two agree and quietly misleading when they do not: benchmark runs reported two
 // sets of numbers for the same name, and a stale `dist/` could pass a suite the sources fail.
-const EXCLUDE = ['**/node_modules/**', '**/dist/**'];
+//
+// Extended rather than replaced: spelling the list out drops whatever Vitest excludes by default
+// (`**/.git/**` today), which is a silent narrowing that has nothing to do with the `dist/` fix.
+const EXCLUDE = [...defaultExclude, '**/dist/**'];
 
 export default defineConfig({
   test: {

@@ -1,5 +1,6 @@
-// What a container costs to build. `add` copies the resolver map per call, so a chain is O(N²) at
-// runtime too; the second group checks `compose` adds no runtime tax.
+// What a container costs to build. `add` writes into the resolver map in place, so a chain is
+// linear at runtime even though it stays O(N²) to type-check; the second group checks `compose`
+// adds no runtime tax.
 import { DIContainer } from '../../DIContainer.js';
 import { buildIndependentChain, buildModules, sink } from '../__helpers__/syntheticGraph.js';
 import { bench, describe } from 'vitest';
@@ -11,7 +12,9 @@ const GRAPH_SIZE = 200;
 const MODULE_COUNT = 20;
 
 describe('add — a growing chain', () => {
-  // Doubling the size should roughly quadruple the time.
+  // Doubling the size should roughly double the time. Anything approaching a quadrupling means a
+  // rebuild of the resolver map is back on the `add` path — `resolverMapOwnership.test.ts` pins
+  // that deterministically, and is the row to look at first when this one drifts.
   for (const size of CHAIN_SIZES) {
     bench(`chain of ${size}`, () => {
       sink.value = buildIndependentChain(size);

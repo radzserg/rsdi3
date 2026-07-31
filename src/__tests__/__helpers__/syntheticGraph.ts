@@ -50,8 +50,16 @@ export const buildLinkedChain = (size: number): SyntheticContainer => {
   return container;
 };
 
-/** `size` must divide evenly. */
+/**
+ * `size` must divide evenly by `moduleCount`. A fractional `perModule` would silently produce
+ * short modules and duplicate keys across them, so the row would price a different graph than
+ * its name claims rather than fail.
+ */
 export const buildModules = (size: number, moduleCount: number): SyntheticContainer[] => {
+  if (size % moduleCount !== 0) {
+    throw new Error(`buildModules: ${size} dependencies do not divide evenly into ${moduleCount}.`);
+  }
+
   const perModule = size / moduleCount;
 
   return Array.from({ length: moduleCount }, (_, module) => {
