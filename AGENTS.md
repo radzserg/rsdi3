@@ -79,7 +79,11 @@ Adding a public **instance** method to the class means adding its name to that `
 
 `clone()` works through `ClonedDiContainer`, a non-exported subclass at the bottom of `DIContainer.ts`. It exists purely to provide a constructor that seeds resolvers, because the public `DIContainer` constructor deliberately takes no arguments. `setResolvers` is `protected` for the same reason and throws if resolvers already exist.
 
-**No two containers may share a resolver map.** `add` and `merge` write into `this.resolvers` in place — that is what keeps a chain linear instead of quadratic — so `setResolvers` has to copy what `clone()` hands it. Adopting the source's map instead would leak every later registration back into it in both directions. Three tests in `clone.test.ts` pin this; they are the reason the in-place writes are safe.
+**No two containers may share a resolver map.** `add`, `update` and `merge` write into `this.resolvers` in place — that is what keeps a chain linear instead of quadratic — so `setResolvers` has to copy what `clone()` hands it. Adopting the source's map instead would leak every later registration back into it in both directions. Three tests in `clone.test.ts` pin this; they are the reason the in-place writes are safe.
+
+Those writes cost a chain of 1600 dependencies 196 ms before and 0.6 ms after, so **treat a rebuild of either map as a performance bug, not a style choice.** Wall clock can't guard that in CI, so `resolverMapOwnership.test.ts` asserts the maps keep their identity across `add`, `update`, `merge` and a cached `get` — the same invariant, stated deterministically. A `{ ...this.resolvers }` anywhere on those paths fails there.
+
+**`export()` is the one place that copies on purpose.** Before the in-place writes, `add` replaced `this.resolvers` outright, so what `export()` returned was a de-facto snapshot; handing out the live map now would let a caller watch the container change under them and mutate it by writing into what they were given. Nothing inside the class calls it — `clone()` and `merge()` read the protected maps directly, cross-instance — so no internal path pays for the copy. Note `export` is declared on the class but **not** on `IDIContainer`, so it is unreachable once a chain has widened the type; if that is ever fixed, fix it in both files.
 
 ### Resolution: lazy, cached, via two access paths
 

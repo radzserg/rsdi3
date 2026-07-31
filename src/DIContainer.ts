@@ -17,9 +17,10 @@ import {
 
 // Every public *instance* member, because `addContainerProperty` defines dependencies as own
 // properties that would otherwise shadow the method of the same name. `export` belongs here even
-// though it is rarely used directly: `merge` calls it on the containers passed to it, so a
-// dependency named `export` turned any `merge`/`compose` involving that container into a
-// `TypeError`. Statics (`compose`) never live on the instance and are deliberately absent.
+// though it is rarely used directly: it once broke every `merge`/`compose` with a `TypeError`,
+// because `merge` called it on the containers passed to it. `merge` reads the protected maps
+// directly now, so only a consumer's own call is at stake — still public API, so still reserved.
+// Statics (`compose`) never live on the instance and are deliberately absent.
 // `src/__tests__/reservedNames.test.ts` fails if a new public method is not listed here.
 const containerMethods = new Set([
   'add',
@@ -125,18 +126,30 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
    * The cloned container is a new instance but retains all the original resolvers.
    */
   public clone(): DIContainer<ContainerResolvers> {
-    const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } =
-      this.export();
+    // Handed the live maps on purpose — `setResolvers` is what copies them, and routing this
+    // through `export()` would only allocate a second copy to throw away.
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    const newContainer = new ClonedDiContainer(newResolvers, newResolvedDependencies);
+    const newContainer = new ClonedDiContainer(
+      this.resolvers,
+      this.resolvedDependencies as { [name in keyof ContainerResolvers]: ResolvedDependencyValue },
+    );
 
     return newContainer as DIContainer<ContainerResolvers>;
   }
 
+  /**
+   * Returns the container's resolvers and its already-resolved values.
+   *
+   * Both maps are copies. `add`, `update` and `merge` write into the internal maps in place, so
+   * handing out the live objects would let a caller both observe registrations made after the
+   * call and mutate the container by writing into what they were given. Nothing inside the class
+   * goes through here — `clone` and `merge` read the protected maps directly — so the copy is
+   * paid only by a consumer that asks for it.
+   */
   public export(): ResolvedDependencies {
     return {
-      resolvedDependencies: this.resolvedDependencies,
-      resolvers: this.resolvers,
+      resolvedDependencies: { ...this.resolvedDependencies },
+      resolvers: { ...this.resolvers },
     };
   }
 
@@ -233,9 +246,10 @@ export class DIContainer<ContainerResolvers extends ResolvedDependencies = {}> {
     >;
 
     for (const otherContainer of containers) {
-      const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } = (
-        otherContainer as DIContainer<ResolvedDependencies>
-      ).export();
+      // The protected maps directly, not `export()`: that copies now, and every name is copied
+      // again into our own maps below — one throwaway map per merged container, for nothing.
+      const { resolvedDependencies: newResolvedDependencies, resolvers: newResolvers } =
+        otherContainer as DIContainer<ResolvedDependencies>;
 
       for (const name of Object.keys(newResolvers)) {
         // A replaced resolver must not keep the value the previous one produced — the same
